@@ -1,0 +1,1 @@
+(function(){"use strict";angular.module("etcApp",["ngAnimate","ngResource","ngSanitize","ngTouch"])}).call(this),function(){"use strict";angular.module("etcApp").controller("MainCtrl",["$scope",function(a){return a.awesomeThings=["HTML5 Boilerplate","AngularJS","Karma"]}])}.call(this);

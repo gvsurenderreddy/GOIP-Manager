@@ -174,7 +174,7 @@ dist/
 node_modules/
 bower_components/
 /requirements/local.txt
-/etc/static_collected/
+# /etc/static_collected/
 /etc/templates_collected/
 /etc/uploads/
 /smsbank/my/
