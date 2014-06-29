@@ -7,6 +7,12 @@ class Device(models.Model):
     """GSM module, provided by GOIP SMS bank"""
     ip = models.GenericIPAddressField()
     port = models.PositiveIntegerField(verbose_name=u'порт')
+    name = models.CharField(
+        max_length=200,
+        null=True,
+        blank=True,
+        verbose_name=u'название'
+    )
     online = models.NullBooleanField(
         default=False,
         blank=True,
@@ -29,7 +35,8 @@ class Device(models.Model):
         verbose_name_plural = u'устройства'
 
     def __unicode__(self):
-        return u'%s:%d [%s]' % (
+        return u'(%s)%s:%d [%s]' % (
+            self.name,
             self.ip,
             self.port,
             u'онлайн' if self.online else u'оффлайн'
