@@ -18,7 +18,9 @@ TEMPLATE_DEBUG = DEBUG
 
 # Allowed hosts list
 ALLOWED_HOSTS = [
-    'localhost'
+    'localhost',
+    'http://217.148.210.177/',
+    '217.148.210.177'
 ]
 
 
