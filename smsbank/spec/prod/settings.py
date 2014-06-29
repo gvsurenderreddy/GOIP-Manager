@@ -6,9 +6,9 @@ WSGI_APPLICATION = 'smsbank.spec.prod.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'sms_bank',
-        'USER': 'root',
-        'PASSWORD': 'pass',
+        'NAME': 'simhosting',
+        'USER': 'simhosting',
+        'PASSWORD': 'gielei0M',
         'HOST': 'localhost',
         'PORT': '3306',
     }
