@@ -172,7 +172,6 @@ pip-log.txt
 .sass-cache/
 dist/
 node_modules/
-bower_components/
 /requirements/local.txt
 # /etc/static_collected/
 /etc/templates_collected/
