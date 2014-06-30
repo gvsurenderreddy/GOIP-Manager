@@ -133,7 +133,14 @@ def grunts(request):
 
     # If admin, re-scan device list
     except DeviceList.DoesNotExist:
-        devices = Device.objects.all()
+        devices = Device.objects.all().order_by('device_id')
+
+        # Additional sort, due to alphanumeric device_id
+        devices = sorted(
+            devices,
+            key=lambda d: int(d.device_id) if d.device_id
+            and d.device_id.isdigit() else None
+        )
 
     return render(
         request,
