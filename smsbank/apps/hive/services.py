@@ -76,7 +76,7 @@ def update_device_status(device_id, gsm_status):
     """Update device status based on gsm_status"""
     device = get_device(device_id)
     if device:
-        device.status = bool(gsm_status)
+        device.online = bool(gsm_status)
         device.save()
 
 
