@@ -6,24 +6,62 @@
 
   <div class="panel-heading">Доступные устройства</div>
   <div class="panel-body">
-    <p>
-      Последнее обновление: <не указано>
-    </p>
+
+    <form method="post" action="{% url 'grunts' %}">
+      {% csrf_token %}
+      <div class="text-center">
+          <div class="btn-group">
+            {% for group in groups %}
+            <button type="submit" name="group" value="{{ group }}"
+              class="btn btn-default btn-xs {% if group == active %} active {% endif %}">
+              {{ group }}
+            </button>
+            {% endfor %}
+            <button type="submit" name="group" value=""
+              class="btn btn-default btn-xs {% if not active %} active {% endif %}">
+              Все устройства
+            </button>
+        </div>
+      </div>
+    </form>
+
+    {# <p> #}
+    {#   Устройства отсортированы по идентификатору GOIP #}
+    {# </p> #}
   </div>
 
   <ul class="list-group">
 
     {% for grunt in grunts %}
-    <a href="{% url 'grunt-list' grunt.id %}" class="list-group-item"
+    <a href="{% url 'grunt-list' grunt.id %}"
+      class="list-group-item"
       title="Отобразить список отправленных смс">
-        {% if grunt.online %}
-          <span class="badge alert-success mono-font">доступно</span>
-        {% else %}
-          <span class="badge alert-danger mono-font">недоступно</span>
+
+        {# Device name and GOIP id #}
+        {% if grunt.device_id %}
+          <strong>{{ grunt.device_id }}.</strong>
         {% endif %}
-        {% if grunt.name %} {{ grunt.name }} {% endif %}
-        {% if grunt.device_id %} {{ grunt.device_id }} {% endif %}
-        <small>{{ grunt.ip }}:<strong>{{ grunt.port }}</strong></small>
+
+        {% if grunt.name %}
+          {{ grunt.name }}
+        {% else %}
+          Без имени
+        {% endif %}
+
+        {% if grunt.online %}
+          <span class="badge alert-success mono-font pull-right">доступно</span>
+        {% else %}
+          <span class="badge alert-danger mono-font pull-right">недоступно</span>
+        {% endif %}
+
+        <span class="badge alert-info pull-right">
+          {{ grunt.port }}
+        </span>
+
+        <span class="badge badge-default pull-right">
+          {{ grunt.ip }}
+        </span>
+
       </a>
     {% endfor %}
 

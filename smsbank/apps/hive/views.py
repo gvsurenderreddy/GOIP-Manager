@@ -126,27 +126,42 @@ def grunts(request):
     if not request.user.is_authenticated():
         return redirect('login')
 
+    # Switch display groups if required
+    groups = Device.objects.values_list('ip', flat=True).distinct()
+    if request.method == 'POST':
+        group = request.POST.get('group')
+    else:
+        group = None
+
     # Get device list available for this user
     try:
         device_list = request.user.device_list.get()
-        devices = device_list.devices.all()
+        if group:
+            devices = device_list.devices.filter(
+                ip=group
+            ).order_by('device_id')
+        else:
+            devices = device_list.devices.all().order_by('device_id')
 
     # If admin, re-scan device list
     except DeviceList.DoesNotExist:
-        devices = Device.objects.all().order_by('device_id')
+        if group:
+            devices = Device.objects.filter(ip=group).order_by('device_id')
+        else:
+            devices = Device.objects.all().order_by('device_id')
 
-        # Additional sort, due to alphanumeric device_id
-        devices = sorted(
-            devices,
-            key=lambda d: int(d.device_id) if d.device_id
-            and d.device_id.isdigit() else None
-        )
-
-    return render(
-        request,
-        'devices/grunts.html',
-        {'grunts': devices}
+    # Additional sort, due to alphanumeric device_id
+    devices = sorted(
+        devices,
+        key=lambda d: int(d.device_id) if d.device_id
+        and d.device_id.isdigit() else None
     )
+
+    return render(request, 'devices/grunts.html', {
+        'grunts': devices,
+        'groups': groups,
+        'active': group
+    })
 
 
 def grunt_list(request, grunt, inbox):

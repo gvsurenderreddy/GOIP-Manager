@@ -1,6 +1,6 @@
 <!-- Additional info -->
 <div class="bs-callout bs-callout-info">
-    <h4>Информация о всех смс данного устройства</h4>
+    <h4>Список смс данного устройства</h4>
     <p>NB: иногда вместо номера может отображаться зарегистрированное имя</p>
 </div>
 
@@ -12,8 +12,16 @@
     {% if inbox %}СМС полученные устройством
     {% else %}СМС отправленные с устройства
     {% endif %}
-    <strong>{{ grunt.ip }}:{{ grunt.port}}</strong>
-    <a href="{% url 'grunts' %}" class="btn btn-xs btn-success pull-right" role="button">
+
+    {% if grunt.device_id %}
+      <strong>{{ grunt.device_id }}</strong>
+    {% endif %}
+    {% if grunt.name %}
+      {{ grunt.name }}
+    {% endif %}
+    <small>{{ grunt.ip }}:<em>{{ grunt.port}}</em></small>
+    <a href="{% url 'grunts' %}" class="btn btn-xs btn-default pull-right" role="button">
+      <span class="glyphicon glyphicon-list"></span>
       К списку устройств
     </a>
   </div>
