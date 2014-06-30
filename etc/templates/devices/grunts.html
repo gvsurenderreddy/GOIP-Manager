@@ -21,7 +21,8 @@
         {% else %}
           <span class="badge alert-danger mono-font">недоступно</span>
         {% endif %}
-          {{ grunt.ip }}:<strong>{{ grunt.port }}</strong>
+        {% if grunt.name %} {{ grunt.name }} {% endif %}
+        {{ grunt.ip }}:<strong>{{ grunt.port }}</strong>
       </a>
     {% endfor %}
 
