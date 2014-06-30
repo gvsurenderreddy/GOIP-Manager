@@ -20,7 +20,9 @@ TEMPLATE_DEBUG = DEBUG
 ALLOWED_HOSTS = [
     'localhost',
     'http://217.148.210.177/',
-    '217.148.210.177'
+    '217.148.210.177',
+    'http://sms.corp.vitand.org',
+    'sms.corp.vitand.org',
 ]
 
 
