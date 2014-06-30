@@ -10,6 +10,7 @@ import random
 
 from smsbank.apps.hive.services import (
     initialize_device,
+    update_device_status,
     new_sms,
 )
 
@@ -394,6 +395,8 @@ class deviceWorker(mp.Process):
     def processServiceRequest(self, data):
         if data['command'] == 'req':
             response = 'reg:' + str(data['req']) +';status:200'
+            # Update device status
+            update_device_status(self.devid, data['gsm_status'])
             return response
         #if not regActive(commandData["id"]):
         #    return

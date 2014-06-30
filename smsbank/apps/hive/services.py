@@ -72,6 +72,14 @@ def initialize_device(device_id, ip, port, online=True):
     return device
 
 
+def update_device_status(device_id, gsm_status):
+    """Update device status based on gsm_status"""
+    device = get_device(device_id)
+    if device:
+        device.status = bool(gsm_status)
+        device.save()
+
+
 def new_sms(recipient, message, inbox=False, device_id=None):
     """Create new SMS."""
     sms = Sms(recipient=recipient, message=message, inbox=inbox)
