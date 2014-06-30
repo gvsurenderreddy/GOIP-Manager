@@ -399,10 +399,14 @@ class deviceWorker(mp.Process):
         if data['command'] == 'req':
             response = 'reg:' + str(data['req']) +';status:200'
             # Update device status
+            '''
             try:
                 update_device_status(self.devid, data['gsm_status'])
             except Exception as e:
                 print 'Database exception: %s' % e
+            finally:
+                return response
+            '''
 
             return response
         #if not regActive(commandData["id"]):
