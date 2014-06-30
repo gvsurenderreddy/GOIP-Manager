@@ -14,6 +14,8 @@ from smsbank.apps.hive.services import (
     new_sms,
 )
 
+# from clint.textui import puts, colored
+
 # Initialize local constants
 port = 44444
 host = "0.0.0.0"
@@ -110,6 +112,7 @@ class GoipUDPListener(ss.BaseRequestHandler):
         if query['command'] == 'RECEIVE':
             print self.request[0]
         if 'id' not in query:
+            # TODO: check if index in range!
             query['id'] = self.seedDic[int(self.request[0].split()[1])]
             query['pass'] = devPassword                         #MUST CHECK source and compare it with actual device data
         print query
@@ -358,7 +361,7 @@ class deviceWorker(mp.Process):
             response = data['command'] + " " + str(data[data['command']]) + " OK"
 
 
-
+        # TODO: fix UnboundLocalError: local variable 'response' referenced before assignment
         return response
 
 
@@ -396,7 +399,11 @@ class deviceWorker(mp.Process):
         if data['command'] == 'req':
             response = 'reg:' + str(data['req']) +';status:200'
             # Update device status
-            update_device_status(self.devid, data['gsm_status'])
+            try:
+                update_device_status(self.devid, data['gsm_status'])
+            except Exception as e:
+                print 'Database exception: %s' % e
+
             return response
         #if not regActive(commandData["id"]):
         #    return
