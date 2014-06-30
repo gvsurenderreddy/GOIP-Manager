@@ -190,6 +190,10 @@ class GoipUDPListener(ss.BaseRequestHandler):
             command['seed'] = data.split()[1]
             command['data'] = data
 
+        if command['command'] == 'RECEIVE':
+            msgIndex = data.find('msg:')
+            command['msg'] = data[msgIndex:]
+
         return command
 
     def authDevice(self, devid, password, host):
