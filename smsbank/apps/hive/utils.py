@@ -7,12 +7,14 @@ import multiprocessing as mp
 import json
 from time import sleep
 import random
+import logging as log
 
 from smsbank.apps.hive.services import (
     initialize_device,
     update_device_status,
     new_sms,
 )
+from compiler.pycodegen import EXCEPT
 
 # from clint.textui import puts, colored
 
@@ -21,6 +23,7 @@ port = 44444
 host = "0.0.0.0"
 devPassword = "123"
 defaultRandomNumber = 4
+killFlag = 0
 
 class LocalAPIServer(mp.Process):
     host = "0.0.0.0"
@@ -28,7 +31,7 @@ class LocalAPIServer(mp.Process):
     queue = None
     sender = None
 
-    def __init__(self, queue):
+    def __init__(self, queue, killFlagRef):
         mp.Process.__init__(self)
         #self.socket = socket
         self.queue = queue
@@ -37,7 +40,6 @@ class LocalAPIServer(mp.Process):
     def run(self):
         locaServer = self.QueuedServer((self.host, self.port), self.LocalAPIListener)
         locaServer.queue = self.queue
-        #self.LocalAPIListener.getQueue(self.queue)
         locaServer.serve_forever()
         None
 
@@ -49,18 +51,23 @@ class LocalAPIServer(mp.Process):
             #self.queue = queue
 
         def handle(self):
-            realCommand = json.loads(self.request[0])
-            if realCommand['command'] in ['USSD', 'SMS']:
-                realCommand['seed'] = random.randrange(200000, 299999)
-                #realCommand['seed'] = "2236910"
-                #realCommand['data']['message'] = "MSGBODY"
-
-            #LocalAPIServer.queue.put(realCommand)
-            self.queue.put(realCommand)
-            print "we got signal"
-            print realCommand
-            socket = self.request[1]
-            socket.sendto(self.respond(realCommand), self.client_address)
+            log.debug('We got message on API Listener: ' + str(self.request[0]))
+            try:
+                realCommand = json.loads(self.request[0])
+            finally:
+                # TODO: Log This
+                log.error("Unreadable JSON request: " + str(self.request[0]))
+            
+            if realCommand['command'] in ['USSD', 'SMS', 'TERMINATE', 'RESTART']:
+                if realCommand['command'] in ['USSD', 'SMS']:
+                    realCommand['seed'] = random.randrange(200000, 299999)
+                log.debug('Put command on queue: ' + str(realCommand))
+                self.queue.put(realCommand)
+                socket = self.request[1]
+                socket.sendto(self.respond(realCommand), self.client_address)
+            else:
+                log.warning('Unsupported command: ' + str(self.request[0]))
+                socket.sendto("400 UNSUPPORTED COMMAND", self.client_address)
 
             """
             id
@@ -74,15 +81,14 @@ class LocalAPIServer(mp.Process):
         def respond(self, command):
             return "OK"
 
-        def getQueue(self, queue):
+            """ def getQueue(self, queue):
             self.queue = queue
-
+            """
+            
     class QueuedServer(ss.UDPServer):
         queue = None
 
         def finish_request(self, request, client_address):
-            #self.RequestHandlerClass(self, request, client_address, self.queue )
-            #print self.queue.__class__
             self.RequestHandlerClass.queue = self.queue
             ss.UDPServer.finish_request(self, request, client_address)
 
@@ -99,31 +105,22 @@ class GoipUDPListener(ss.BaseRequestHandler):
     senderQueue = mp.Queue()
     sender = None
     seedDic = mp.Manager().dict()
+    killFlag = mp.Value('h')
 
     def handle(self):
-        #data = self.request[0].strip()
         sock = self.request[1]
-        #socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        #command = self.getCommand(self.request[0])
-
-
         query = self.parseRequest(self.request[0])
-        print query
-        if query['command'] == 'RECEIVE':
-            print self.request[0]
         if 'id' not in query:
             # TODO: check if index in range!
+            
             query['id'] = self.seedDic[int(self.request[0].split()[1])]
             query['pass'] = devPassword                         #MUST CHECK source and compare it with actual device data
-        print query
-        #print self.devPool
+        log.debug('Current query:' + str(query))
+        log.debug('Current device pool :' + str(self.devPool))
         self.queryDevice(query['id'], query['pass'])
-        #device = self.devPool[query['id']]['device']
         if not self.senderQueue.empty():
             while not self.senderQueue.empty():
                 data = self.senderQueue.get()
-                print data['host']
-                print data['data']
                 sock.sendto(data['data'], data['host'])
 
         # BAD Practice BUT, now we init event
@@ -133,21 +130,32 @@ class GoipUDPListener(ss.BaseRequestHandler):
         while not apiQueue.empty():
             outbound = apiQueue.get()
             if self.deviceActive(outbound['id']):
-                if outbound['command'] == 'SMS':
-                    outbound['command'] = 'SMSG'
-                if outbound['command'] == 'USSD':
-                    outbound['command'] = 'SUSSD'
                 print self.devPool[query['id']]['queue']
                 outQueue = self.devPool[query['id']]['queue']
                 outQueue.put(outbound)
             #self.queryDevice(devId, passw, 1)
             None
+        
 
 
         queue = self.devPool[query['id']]['queue']
         queue.put_nowait(query)
         print "queue " + str(queue.qsize())
         print "Process count: " + str(len(self.devPool))
+        
+    def terminateProcess(self):
+        log.info('Shutdown initiated')
+        self.killFlag = True
+        log.debug('Waiting for child processes to finish')
+        sleep(5)
+        for process in self.devPool:
+            process['device'].join()
+            if process['device'].is_alive():
+                log.warn("Device worker is not closed! Trying to terminate")
+                process['device'].terminate()
+            if process['device'].is_alive():
+                log.error("Device worker is stall and cannot be terminated")
+            
 
     def queryDevice(self, devId, passw, auth=0):
         # authState = True
@@ -155,10 +163,9 @@ class GoipUDPListener(ss.BaseRequestHandler):
 
         if (not self.deviceActive(devId) and authState):
             queue = mp.Queue()
-            #device = mp.Process(target=deviceWorker, args=(devId, self.client_address, queue, senderQueue))
-            device = deviceWorker(devId, self.client_address, queue, self.senderQueue, self.seedDic)
+            device = deviceWorker(devId, self.client_address, queue, self.senderQueue, self.seedDic, self.killFlag)
+            device.daemon = True
             device.start()
-            #device._target.newRun()
             self.devPool[devId] = {}
             self.devPool[devId]['device'] = device
             self.devPool[devId]['queue'] = queue
@@ -189,6 +196,8 @@ class GoipUDPListener(ss.BaseRequestHandler):
         elif command['command'] in ['MSG', 'USSD', 'PASSWORD', 'SEND', 'WAIT', 'DONE', 'OK']:
             command['seed'] = data.split()[1]
             command['data'] = data
+        else:
+            pass
 
         if command['command'] == 'RECEIVE':
             msgIndex = data.find('msg:')
@@ -225,7 +234,7 @@ class deviceWorker(mp.Process):
     gsm = None
     signal = None
     expiryTime = None
-    killFlag = False
+    killFlag = 0
     password = None
 
     msgActive = {}
@@ -238,13 +247,14 @@ class deviceWorker(mp.Process):
     queueIn = None
     queueOut = None
 
-    def __init__(self, devid, host, queue, outQueue, seedArray):
+    def __init__(self, devid, host, queue, outQueue, seedArray, killFlagRef):
         mp.Process.__init__(self)
         self.devid = devid
         self.queueIn = queue
         self.host = host
         self.queueOut = outQueue
         self.msgSeeds = seedArray
+        self.killFlag = killFlagRef
 
         self.state = {'new':        1,
                       'auth':       2,
@@ -264,21 +274,12 @@ class deviceWorker(mp.Process):
         '''
         Main worker function
         '''
-        #print "OMG! I'm Running wild and free!"
-        #self.expire = 20
-        while True:
+        while not self.killFlag:
             if not self.queueIn.empty():
                 self.processRequest()
                 self.msgActive['goipId'] = {}
             else:
                 sleep(1)
-                #self.expire -= 1
-                #print "Expire is now: " + str(self.expire)
-
-            #if self.expire <= 0:
-            #    print "For thy Emperor of the catkind I will sacrifice myself"
-                #return
-                #self.terminate()
 
     def processRequest(self):
         response = {}
@@ -289,7 +290,7 @@ class deviceWorker(mp.Process):
             if data['command'] in ['req', 'CGATT', 'CELLINFO', 'STATE', 'EXPIRY']:
                 response['data'] = self.processServiceRequest(data)
                 self.queueOut.put(response)
-            elif data['command'] in ['MSG', 'USSD', 'PASSWORD', 'SEND', 'WAIT', 'DONE', 'OK', 'SMSG', 'SUSSD', 'DELIVER']:
+            elif data['command'] in ['MSG', 'USSD', 'PASSWORD', 'SEND', 'WAIT', 'DONE', 'OK', 'SMS', 'USSD', 'DELIVER']:
                 response['data'] = self.processOutbound(data)
                 self.queueOut.put(response)
             elif data['command'] in ['RECEIVE', ]:
@@ -305,7 +306,7 @@ class deviceWorker(mp.Process):
     def processOutbound(self, data):
         print 'PROCESSING OUTBOUND'
         print data
-        if data['command'] == 'SMSG':
+        if data['command'] == 'SMS':
             self.msgCount += 1
             self.msgActive[data['seed']] = {}
             self.msgActive[data['seed']]['locId'] = self.msgCount
@@ -322,7 +323,7 @@ class deviceWorker(mp.Process):
         elif data['seed'] in self.msgActive:
             message = self.msgActive[data['seed']]
 
-        if data['command'] == 'SMSG':
+        if data['command'] == 'SMS':
             message['state'] = self.state['new']
             message['message'] = data['data']['message']
             message['recipient'] = data['data']['recipient']
