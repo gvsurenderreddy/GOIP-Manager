@@ -22,7 +22,8 @@
           <span class="badge alert-danger mono-font">недоступно</span>
         {% endif %}
         {% if grunt.name %} {{ grunt.name }} {% endif %}
-        {{ grunt.ip }}:<strong>{{ grunt.port }}</strong>
+        {% if grunt.device_id %} {{ grunt.device_id }} {% endif %}
+        <small>{{ grunt.ip }}:<strong>{{ grunt.port }}</strong></small>
       </a>
     {% endfor %}
 
