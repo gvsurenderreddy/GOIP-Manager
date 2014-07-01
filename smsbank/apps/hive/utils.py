@@ -77,18 +77,20 @@ class LocalAPIServer(mp.Process):
             finally:
                 # TODO: Log This
                 log.error("Unreadable JSON request: " + str(self.request[0]))
-            
+            socket = self.sock
             if realCommand['command'] in ['USSD', 'SMS', 'TERMINATE', 'RESTART']:
                 # TODO: add sanity checks on commands
                 if realCommand['command'] in ['USSD', 'SMS']:
                     realCommand['seed'] = random.randrange(200000, 299999)
                 log.debug('Put command on queue: ' + str(realCommand))
-                self.queue.put(realCommand)
-                socket = self.sock
-                socket.sendto(self.respond(realCommand), self.client_address)
                 if realCommand['command'] in ['TERMINATE', 'RESTART']:
                     log.info("Shutting down API Listener")
                     self.killFlag = 1
+                else:
+                    self.queue.put(realCommand)
+                    
+                socket.sendto(self.respond(realCommand), self.client_address)
+                
                     
             else:
                 log.warning('Unsupported command: ' + str(self.request[0]))
