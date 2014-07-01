@@ -30,7 +30,7 @@ class LocalAPIServer(mp.Process):
     queue = None
     sender = None
 
-    def __init__(self, queue, killFlagRef):
+    def __init__(self, queue):
         mp.Process.__init__(self)
         #self.socket = socket
         self.queue = queue
