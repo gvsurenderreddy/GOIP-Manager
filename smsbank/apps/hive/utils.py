@@ -4,11 +4,11 @@ import string
 import re
 from __builtin__ import Exception
 import multiprocessing as mp
-import threading
 import json
 from time import sleep
 import random
 import logging as log
+import socket
 
 from smsbank.apps.hive.services import (
     initialize_device,
@@ -23,7 +23,7 @@ port = 44444
 host = "0.0.0.0"
 devPassword = "123"
 defaultRandomNumber = 4
-killFlag = mp.Value('h', 0)
+killFlag = 0
 log.basicConfig(format = u'%(filename)s[LINE:%(lineno)d]# %(levelname)-8s [%(asctime)s]  %(message)s', level = log.DEBUG)
 
 class LocalAPIServer(mp.Process):
@@ -31,36 +31,44 @@ class LocalAPIServer(mp.Process):
     port = 13666
     queue = None
     sender = None
-    killFlag = None
     
 
     def __init__(self, queue):
         mp.Process.__init__(self)
         #self.socket = socket
         self.queue = queue
-        self.killFlag = killFlag
         #self.sender = sender
 
     def run(self):
-        localServer = self.ThreadedUDPServer((self.host, self.port), self.LocalAPIListener)
-        localServer.queue = self.queue
-        serverThread = threading.Thread(target=localServer.serve_forever)
-        serverThread.daemon = True
-        serverThread.start()
-        log.debug("API server is running in another thread: " + str(serverThread))
-        while not self.killFlag.value:
-            sleep(1)
-        log.info("API server is shutting down.")
-        localServer.shutdown()
-        #localServer.serve_forever()
+        #locaServer = self.QueuedServer((self.host, self.port), self.LocalAPIListener)
+        #locaServer.queue = self.queue
+        #locaServer.serve_forever()
+        localServer = self.LocalAPIListener((self.host, self.port), self.queue)
+        localServer.serve()
+        log.info("Local API server process is shutting down")
 
-    class LocalAPIListener(ss.BaseRequestHandler):
+    class LocalAPIListener:
         queue = None
         killFlag = 0
+        sock = None
+        address = None
+        client_address = None
+        request = []
 
-        def __init__(self, request, client_address, server):
-            ss.BaseRequestHandler.__init__(self, request, client_address, server)
-            #self.queue = queue
+        def __init__(self, address, queue):
+            self.address = address
+            self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            self.sock.bind(address)
+            self.queue = queue
+            
+        def serve(self):
+            while not self.killFlag:
+                data, addr = self.recvfrom(4096)
+                self.request[0] = data
+                self.client_address = addr
+                self.handle()
+                sleep(0.5)
+                
 
         def handle(self):
             log.debug('We got message on API Listener: ' + str(self.request[0]))
@@ -76,11 +84,11 @@ class LocalAPIServer(mp.Process):
                     realCommand['seed'] = random.randrange(200000, 299999)
                 log.debug('Put command on queue: ' + str(realCommand))
                 self.queue.put(realCommand)
-                socket = self.request[1]
+                socket = self.sock
                 socket.sendto(self.respond(realCommand), self.client_address)
                 if realCommand['command'] in ['TERMINATE', 'RESTART']:
                     log.info("Shutting down API Listener")
-                    killFlag.value = 1
+                    self.killFlag = 1
                     
             else:
                 log.warning('Unsupported command: ' + str(self.request[0]))
@@ -102,8 +110,6 @@ class LocalAPIServer(mp.Process):
             self.queue = queue
             """
             
-    class ThreadedUDPServer(ss.ThreadingMixIn, ss.UDPServer):
-        queue = None
 
 
 
