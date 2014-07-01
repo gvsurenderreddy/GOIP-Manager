@@ -4,7 +4,7 @@ import socket
 import json
 
 
-class GOIPClient:
+class GOIPClient(object):
     """
     Client for GOIP daemon
     """
@@ -40,6 +40,12 @@ class GOIPClient:
             self.prepare('reboot')
         )
 
+    def goip_shutdown(self):
+        """Send request for GOIP shutdown"""
+        return self.query(
+            self.prepare('shutdown')
+        )
+
     def debug(self, data):
         """Send RAW debug command"""
         return self.query(
@@ -68,3 +74,20 @@ class GOIPClient:
             'command': request.upper(),
             'data': data
         })
+
+
+class DaemonClient(GOIPClient):
+    """Client for GOIP daemon"""
+
+    def __init__(self):
+        super(DaemonClient, self).__init__(0)
+
+    def terminate(self):
+        return self.query(
+            self.prepare('terminate')
+        )
+
+    def restart(self):
+        return self.query(
+            self.prepare('restart')
+        )

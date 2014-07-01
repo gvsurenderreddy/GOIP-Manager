@@ -10,6 +10,9 @@ from django.contrib.auth import(
     authenticate
 )
 
+# External modules
+import redis
+
 # Project modules
 from forms import (
     SMSForm,
@@ -146,15 +149,34 @@ def grunts(request):
     # If admin, re-scan device list
     except DeviceList.DoesNotExist:
         if group:
-            devices = Device.objects.filter(ip=group).order_by('device_id')
+            devices = Device.objects.filter(
+                ip=group
+            ).order_by('device_id')
         else:
             devices = Device.objects.all().order_by('device_id')
+
+    # Update status for each of the device
+    r = redis.StrictRedis()
+    for device in devices:
+        try:
+            status = r.get(device.device_id)
+            if status:
+                device.online = True if status == 'LOGIN' else False
+                device.save()
+        except redis.ConnectionError:
+            pass
 
     # Additional sort, due to alphanumeric device_id
     devices = sorted(
         devices,
         key=lambda d: int(d.device_id) if d.device_id
         and d.device_id.isdigit() else None
+    )
+
+    # Sort by status
+    devices = sorted(
+        devices,
+        key=lambda d: not d.online
     )
 
     return render(request, 'devices/grunts.html', {
