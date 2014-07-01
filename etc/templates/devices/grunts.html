@@ -55,9 +55,11 @@
           {{ grunt.port }}
         </span>
 
+        {% if active not in groups %}
         <span class="badge badge-default pull-right">
           {{ grunt.ip }}
         </span>
+        {% endif %}
 
       </a>
     {% endfor %}
