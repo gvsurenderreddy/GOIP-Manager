@@ -58,6 +58,7 @@ class LocalAPIServer(mp.Process):
                 log.error("Unreadable JSON request: " + str(self.request[0]))
             
             if realCommand['command'] in ['USSD', 'SMS', 'TERMINATE', 'RESTART']:
+                # TODO: add sanity checks on commands
                 if realCommand['command'] in ['USSD', 'SMS']:
                     realCommand['seed'] = random.randrange(200000, 299999)
                 log.debug('Put command on queue: ' + str(realCommand))
@@ -108,7 +109,7 @@ class GoipUDPListener(ss.BaseRequestHandler):
 
     def handle(self):
         sock = self.request[1]
-        log.debug("Received request: " + str(self.request[0]))
+        log.info("Received request: " + str(self.request[0]))
         query = self.parseRequest(self.request[0])
         if query != False:
             log.debug('Current query:' + str(query))
@@ -117,7 +118,7 @@ class GoipUDPListener(ss.BaseRequestHandler):
             queue = self.devPool[query['id']]['queue']
             queue.put(query)
         else:
-            log.info("Unsupported command")
+            log.info("Unsupported command") # TODO: Log ALL unsupported commands to file
         log.debug("Process count: " + str(len(self.devPool)))
 
 
@@ -170,6 +171,8 @@ class GoipUDPListener(ss.BaseRequestHandler):
     def getCommand(self, data):
         # NB: may blow up when processing dubious data
         newdata = re.search('^([a-zA-Z]+)', data)
+        if newdata == None:
+            return False
         return newdata.group(0)
 
     def parseRequest(self, data):
@@ -415,15 +418,13 @@ class deviceWorker(mp.Process):
         if data['command'] == 'req':
             response = 'reg:' + str(data['req']) +';status:200'
             # Update device status
-            '''
             try:
                 update_device_status(self.devid, data['gsm_status'])
             except Exception as e:
                 print 'Database exception: %s' % e
             finally:
                 return response
-            '''
-
+            
             return response
         #if not regActive(commandData["id"]):
         #    return
