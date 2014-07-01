@@ -46,3 +46,4 @@ class Command(BaseCommand):
             GoipUDPListener
         )
         server.serve_forever()
+        apiHandle.join()
