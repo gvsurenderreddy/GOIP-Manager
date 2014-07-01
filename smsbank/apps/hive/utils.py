@@ -63,7 +63,7 @@ class LocalAPIServer(mp.Process):
             
         def serve(self):
             while not self.killFlag:
-                data, addr = self.recvfrom(4096)
+                data, addr = self.sock.recvfrom(4096)
                 self.request[0] = data
                 self.client_address = addr
                 self.handle()
