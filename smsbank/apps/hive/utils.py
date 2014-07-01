@@ -281,7 +281,7 @@ class deviceWorker(mp.Process):
         '''
         Main worker function
         '''
-        while not self.killFlag:
+        while self.killFlag == 0:
             if not self.queueIn.empty():
                 self.processRequest()
             else:
