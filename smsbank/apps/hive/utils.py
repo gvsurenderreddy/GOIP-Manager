@@ -287,6 +287,7 @@ class deviceWorker(mp.Process):
             else:
                 sleep(1)
                 log.debug("Nothing to do. Sleeping 1.")
+        log.debug("killFlag is now: " + str(self.killFlag))
         log.info('deviceWorker daemon instance is stopping!')
 
     def processRequest(self):
