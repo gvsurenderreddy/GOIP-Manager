@@ -9,6 +9,7 @@ from time import sleep
 import random
 import logging as log
 import socket
+import sys
 
 from smsbank.apps.hive.services import (
     initialize_device,
@@ -75,7 +76,7 @@ class LocalAPIServer(mp.Process):
             log.debug('We got message on API Listener: ' + str(self.request))
             try:
                 realCommand = json.loads(self.request)
-            finally:
+            except:
                 # TODO: Log This
                 log.error("Unreadable JSON request: " + str(self.request))
             socket = self.sock
@@ -87,8 +88,7 @@ class LocalAPIServer(mp.Process):
                 if realCommand['command'] in ['TERMINATE', 'RESTART']:
                     log.info("Shutting down API Listener")
                     self.killFlag = 1
-                else:
-                    self.queue.put(realCommand)
+                self.queue.put(realCommand)
                     
                 socket.sendto(self.respond(realCommand), self.client_address)
                 
@@ -151,6 +151,8 @@ class GoipUDPListener(ss.BaseRequestHandler):
 
         while not apiQueue.empty():
             outbound = apiQueue.get()
+            if outbound['command'] == 'TERMINATE':
+                self.terminateProcess()
             if self.deviceActive(outbound['id']):
                 print self.devPool[query['id']]['queue']
                 outQueue = self.devPool[query['id']]['queue']
@@ -169,6 +171,7 @@ class GoipUDPListener(ss.BaseRequestHandler):
                 process['device'].terminate()
             if process['device'].is_alive():
                 log.error("Device worker is stall and cannot be terminated")
+        sys.exit()
             
 
     def queryDevice(self, devId, passw, auth=0):

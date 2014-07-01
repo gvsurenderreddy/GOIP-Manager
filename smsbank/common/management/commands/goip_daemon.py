@@ -38,6 +38,7 @@ class Command(BaseCommand):
         """
         # Launch local API handler
         apiHandle = LocalAPIServer(apiQueue,)
+        apiHandle.daemon = True
         apiHandle.start()
 
         # Launch GOIP server
