@@ -151,7 +151,6 @@ class GoipUDPListener(ss.BaseRequestHandler):
     def queryDevice(self, devId, passw, auth=0):
         # authState = True
         authState = self.authDevice(devId, passw, self.client_address)
-
         if (not self.deviceActive(devId) and authState):
             queue = mp.Queue()
             device = deviceWorker(devId, self.client_address, queue, self.senderQueue, self.seedDic, self.killFlag)
@@ -262,6 +261,7 @@ class deviceWorker(mp.Process):
         self.queueOut = outQueue
         self.msgSeeds = seedArray
         self.killFlag = killFlagRef
+        self.msgActive['goipId'] = {}
 
         self.state = {'new':        1,
                       'auth':       2,
@@ -284,7 +284,6 @@ class deviceWorker(mp.Process):
         while not self.killFlag:
             if not self.queueIn.empty():
                 self.processRequest()
-                self.msgActive['goipId'] = {}
             else:
                 sleep(1)
 
@@ -293,26 +292,23 @@ class deviceWorker(mp.Process):
         response['host'] = self.host
         while not self.queueIn.empty():
             data = self.queueIn.get()
-            #print data
             if data['command'] in ['req', 'CGATT', 'CELLINFO', 'STATE', 'EXPIRY']:
                 response['data'] = self.processServiceRequest(data)
-                self.queueOut.put(response)
             elif data['command'] in ['MSG', 'USSD', 'PASSWORD', 'SEND', 'WAIT', 'DONE', 'OK', 'SMS', 'USSD', 'DELIVER']:
                 response['data'] = self.processOutbound(data)
-                self.queueOut.put(response)
             elif data['command'] in ['RECEIVE', ]:
                 response['data'] = self.processInboundSMS(data)
-                self.queueOut.put(response)
             else:
-                print 'RAISING EXCEPTION'
-                print data
+                log.error("Unrecognized command")
                 raise Exception
-
-            print response
+                return
+            if response['data'] != "":
+                log.info("Sending response: " + str(response))
+                self.queueOut.put(response)
 
     def processOutbound(self, data):
-        print 'PROCESSING OUTBOUND'
-        print data
+        #implement actual sms tracking
+        log.debug("Outbound SMS processing. Data: " + str(data))
         if data['command'] == 'SMS':
             self.msgCount += 1
             self.msgActive[data['seed']] = {}
@@ -320,12 +316,14 @@ class deviceWorker(mp.Process):
             self.msgIdIntersectionCheck(data['seed'])
             message = self.msgActive[data['seed']]
             self.msgSeeds[data['seed']] = self.devid
-
+            log.info("New outbound SMS! Seed " + str(data['seed']))
+        response = ""
         if data['command'] == 'DELIVER':
             return "DELIVER OK" #not implemented
-        data['seed'] = int(data['seed'])
+        if 'seed' in data:
+            data['seed'] = int(data['seed'])
 
-        if not (int(data['seed']) in self.msgActive) or data['command'] == "DELIVER":
+        if not (data['seed'] in self.msgActive) or data['command'] == "DELIVER":
             return
         elif data['seed'] in self.msgActive:
             message = self.msgActive[data['seed']]
@@ -343,19 +341,17 @@ class deviceWorker(mp.Process):
             response = " ".join([data['command'], str(data['seed']), str(message['locId']), message['recipient']])
         elif data['command'] == 'WAIT':
             message['state'] = self.state['waiting']
-            response = "WAIT OK"
-            #response = " ".join(["OK", str(data['seed']), devPassword, message['recipient']])
         elif data['command'] == 'OK':
-            print 'OKAAAAAAAAAAAY'
             goipId = data['data'].split()[3]
+            log.debug(" ".join("Message with seed ", message['seed'], "got following GoIP id: ", goipId))
             self.msgActive['goipId'][goipId] = message
             message['state'] = self.state['sent']
             response = " ".join(["DONE", str(data['seed'])])
         elif data['command'] == 'DONE':
-            print '>>> MESSAGE SENT!'
+            log.info("Message sent. Seed: " + str(data['seed']))
             message['state'] = self.state['sent']
             del self.msgSeeds[data['seed']]
-
+            del self.msgActive[data['seed']]
             # Save outbound sms to database
             try:
                 new_sms(
@@ -368,9 +364,17 @@ class deviceWorker(mp.Process):
                 print 'Database exception: %s' % e
 
         elif data['command'] == 'DELIVER':
-            message = self.msgActive['goipId'][data['sms_no']]
-            message['state'] = self.state['delivered']
-            response = data['command'] + " " + str(data[data['command']]) + " OK"
+            # TODO: implement DB write on delivery
+            if command['sms_no'] in self.msgActive['goipId']:
+                #message delivered -> write to db
+                log.info("Got delivery report!")
+                del self.msgActive['goipId'][command['sms_no']]
+                log.debug(" ".join("Cleared info concerning active message no.", str(command['sms_no']), "Now active messages are:", str(self.msgActive) ))
+                response = data['command'] + " " + str(data[data['command']]) + " OK"
+        else:
+            log.error("Unrecognized command for outbound SMS!")
+            raise Exception
+
 
 
         # TODO: fix UnboundLocalError: local variable 'response' referenced before assignment
@@ -386,10 +390,7 @@ class deviceWorker(mp.Process):
         RECEIVE:1403245796;id:1;password:123;srcnum:+79520999249;msg:MSGBODY
         """
         # TODO: log this!
-        print data
-        print "I've got message from {}. It reads as follows:".format(data['srcnum'])
-        print data['msg']
-        print "Technically I can save it, but I won't"
+        log.info("Got message. Presumably. Raw data:" + str(data))
         response = " ".join(['RECEIVE', data['RECEIVE'], 'OK'])
         print response
 
