@@ -136,7 +136,7 @@ class GoipUDPListener(ss.BaseRequestHandler):
         
     def terminateProcess(self):
         log.info('Shutdown initiated')
-        self.killFlag = True
+        self.killFlag = 1
         log.debug('Waiting for child processes to finish')
         sleep(5)
         for process in self.devPool:
