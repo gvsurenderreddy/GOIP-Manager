@@ -46,8 +46,10 @@ class LocalAPIServer(mp.Process):
         localServer.queue = self.queue
         serverThread = threading.Thread(target=localServer.serve_forever)
         serverThread.start()
+        log.debug("API server is running in another thread: " + str(serverThread))
         while not self.killFlag.value:
             sleep(1)
+        log.info("API server is shutting down.")
         localServer.shutdown()
         #localServer.serve_forever()
 
