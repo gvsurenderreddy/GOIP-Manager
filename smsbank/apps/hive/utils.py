@@ -9,7 +9,7 @@ from time import sleep
 import random
 import logging as log
 import socket
-import sys
+#import sys
 
 from smsbank.apps.hive.services import (
     initialize_device,
@@ -38,7 +38,7 @@ class LocalAPIServer(mp.Process):
         mp.Process.__init__(self)
         #self.socket = socket
         self.queue = queue
-        #self.sender = sender
+
 
     def run(self):
         #locaServer = self.QueuedServer((self.host, self.port), self.LocalAPIListener)
@@ -116,7 +116,7 @@ class LocalAPIServer(mp.Process):
 
 
 
-class GoipUDPListener(ss.BaseRequestHandler):
+class GoipUDPListener:
     """
     This class works similar to the TCP handler class, except that
     self.request consists of a pair of data and client socket, and since
@@ -128,11 +128,28 @@ class GoipUDPListener(ss.BaseRequestHandler):
     sender = None
     seedDic = mp.Manager().dict()
     killFlag = mp.Value('h', 0)
-
+    client_address = None
+    address = None
+    sock = None
+    
+    def __init__(self, address):
+        self.address = address
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.sock.bind(address)
+        #self.queue = queue
+            
+    def serve(self):
+        while not self.killFlag.value:
+            data, addr = self.sock.recvfrom(4096)
+            self.request = data
+            self.client_address = addr
+            self.handle()
+            sleep(0.1)
+    
     def handle(self):
-        sock = self.request[1]
-        log.info("Received request: " + str(self.request[0]))
-        query = self.parseRequest(self.request[0])
+        sock = self.sock
+        log.info("Received request: " + str(self.request))
+        query = self.parseRequest(self.request)
         if query != False:
             log.debug('Current query:' + str(query))
             log.debug('Current device pool :' + str(self.devPool))
@@ -176,7 +193,6 @@ class GoipUDPListener(ss.BaseRequestHandler):
                 log.critical("Something went wrong! Can't stop process!")
                 log.info(str(self.devPool))
                 log.info(str(self.devPool[process]))
-        sys.exit()
             
 
     def queryDevice(self, devId, passw, auth=0):

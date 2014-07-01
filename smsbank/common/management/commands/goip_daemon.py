@@ -42,9 +42,11 @@ class Command(BaseCommand):
         apiHandle.start()
 
         # Launch GOIP server
-        server = ss.UDPServer(
-            (options['host'], options['port']),
-            GoipUDPListener
-        )
-        server.serve_forever()
+        #server = ss.UDPServer(
+        #    (options['host'], options['port']),
+        #    GoipUDPListener
+        #)
+        #server.serve_forever()
+        server = GoipUDPListener((options['host'], options['port']), )
+        server.serve()
         apiHandle.join()
