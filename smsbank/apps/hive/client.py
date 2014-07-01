@@ -40,6 +40,12 @@ class GOIPClient:
             self.prepare('reboot')
         )
 
+    def goip_shutdown(self):
+        """Send request for GOIP shutdown"""
+        return self.query(
+            self.prepare('shutdown')
+        )
+
     def debug(self, data):
         """Send RAW debug command"""
         return self.query(
