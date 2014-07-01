@@ -41,7 +41,6 @@ class LocalAPIServer(mp.Process):
         locaServer = self.QueuedServer((self.host, self.port), self.LocalAPIListener)
         locaServer.queue = self.queue
         locaServer.serve_forever()
-        None
 
     class LocalAPIListener(ss.BaseRequestHandler):
         queue = None
@@ -87,7 +86,7 @@ class LocalAPIServer(mp.Process):
             
     class QueuedServer(ss.UDPServer):
         queue = None
-
+        # TODO: overload server_forever() so it can be shut down
         def finish_request(self, request, client_address):
             self.RequestHandlerClass.queue = self.queue
             ss.UDPServer.finish_request(self, request, client_address)
@@ -109,39 +108,31 @@ class GoipUDPListener(ss.BaseRequestHandler):
 
     def handle(self):
         sock = self.request[1]
+        log.debug("Received request: " + str(self.request[0]))
         query = self.parseRequest(self.request[0])
-        if 'id' not in query:
-            # TODO: check if index in range!
-            
-            query['id'] = self.seedDic[int(self.request[0].split()[1])]
-            query['pass'] = devPassword                         #MUST CHECK source and compare it with actual device data
-        log.debug('Current query:' + str(query))
-        log.debug('Current device pool :' + str(self.devPool))
-        self.queryDevice(query['id'], query['pass'])
+        if query != False:
+            log.debug('Current query:' + str(query))
+            log.debug('Current device pool :' + str(self.devPool))
+            self.queryDevice(query['id'], query['pass'])
+            queue = self.devPool[query['id']]['queue']
+            queue.put(query)
+        else:
+            log.info("Unsupported command")
+        log.debug("Process count: " + str(len(self.devPool)))
+
+
         if not self.senderQueue.empty():
             while not self.senderQueue.empty():
                 data = self.senderQueue.get()
                 sock.sendto(data['data'], data['host'])
 
-        # BAD Practice BUT, now we init event
-
-        #if not apiQueue.empty():
-        #print apiQueue
         while not apiQueue.empty():
             outbound = apiQueue.get()
             if self.deviceActive(outbound['id']):
                 print self.devPool[query['id']]['queue']
                 outQueue = self.devPool[query['id']]['queue']
                 outQueue.put(outbound)
-            #self.queryDevice(devId, passw, 1)
-            None
-        
 
-
-        queue = self.devPool[query['id']]['queue']
-        queue.put_nowait(query)
-        print "queue " + str(queue.qsize())
-        print "Process count: " + str(len(self.devPool))
         
     def terminateProcess(self):
         log.info('Shutdown initiated')
@@ -169,6 +160,7 @@ class GoipUDPListener(ss.BaseRequestHandler):
             self.devPool[devId] = {}
             self.devPool[devId]['device'] = device
             self.devPool[devId]['queue'] = queue
+            self.devPool[devId]['address'] = self.client_address
         return self.devPool[devId]['device']
 
     def deviceActive(self, devId):
@@ -182,27 +174,42 @@ class GoipUDPListener(ss.BaseRequestHandler):
         return newdata.group(0)
 
     def parseRequest(self, data):
-        reqdata = string.split(data, ";")
         command = {}
         command['command'] = self.getCommand(data)
-        #print command
+        log.debug("Command implied by query: " + str(command['command']))
         if command['command'] in ['req', 'CGATT', 'CELLINFO', 'STATE', 'EXPIRY', 'RECEIVE', 'DELIVER']:
+            reqdata = string.split(data, ";")
+            if len(reqdata) < 2:
+                log.warn("Inconsistent data received. Parse failed.")
+                return False
             for comBun in reqdata:
                 if string.find(comBun, ":") != -1:
                     tmp = string.split(comBun,":")
                     if tmp[0] == 'password':    #correcting for Chinese protocol unevenness, when sometimes its 'pass' and sometimes its 'password'
                         tmp[0] = 'pass'
                     command[tmp[0]] = tmp[1]
+                else:
+                    log.error("Invalid data format! Data: " + str(comBun))
+            if command['command'] == 'RECEIVE':
+                msgIndex = data.find('msg:') + 4
+                command['msg'] = data[msgIndex:]
         elif command['command'] in ['MSG', 'USSD', 'PASSWORD', 'SEND', 'WAIT', 'DONE', 'OK']:
             command['seed'] = data.split()[1]
             command['data'] = data
+            if 'id' not in command:
+                for device in self.devPool: #iterating over a dictionary, so we are getting KEYS
+                    if self.devPool[device]['address'] == self.client_address:
+                        command['id'] = device
+                        idFound = True
+                        command['pass'] = devPassword
+                        # TODO: check if seed correspond with source host
+                if not idFound:
+                    log.error('Cannot identify device with command. Command without id came from unregistered device!')
+                    log.error("Command we got: " + str(data))
+                    return False
         else:
-            pass
-
-        if command['command'] == 'RECEIVE':
-            msgIndex = data.find('msg:')
-            command['msg'] = data[msgIndex:]
-
+            log.error("Received command is unsupported")
+            return False
         return command
 
     def authDevice(self, devid, password, host):
