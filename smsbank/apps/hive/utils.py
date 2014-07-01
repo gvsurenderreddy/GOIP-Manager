@@ -468,7 +468,7 @@ class deviceWorker(mp.Process):
             # Set device status in Redis
             client = redis.Redis()
             try:
-                client.set(self.id, data['gsm_status'])
+                client.set(self.devid, data['gsm_status'])
             except redis.ConnectionError as e:
                 log.error(
                     'Redis error when updating device status: %s' % e
