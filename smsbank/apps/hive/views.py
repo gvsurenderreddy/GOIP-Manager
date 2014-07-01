@@ -146,7 +146,7 @@ def grunts(request):
         else:
             devices = device_list.devices.all().order_by('device_id')
 
-    # If admin, re-scan device list
+    # If admin, get all devices
     except DeviceList.DoesNotExist:
         if group:
             devices = Device.objects.filter(
