@@ -159,7 +159,7 @@ def grunts(request):
         try:
             status = r.get(device.device_id)
             if status:
-                device.online = bool(status)
+                device.online = True if status == 'LOGIN' else False
                 device.save()
         except redis.ConnectionError:
             pass
