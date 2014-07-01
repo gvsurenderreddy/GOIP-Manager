@@ -14,7 +14,6 @@ from smsbank.apps.hive.services import (
     update_device_status,
     new_sms,
 )
-from compiler.pycodegen import EXCEPT
 
 # from clint.textui import puts, colored
 
@@ -365,11 +364,11 @@ class deviceWorker(mp.Process):
 
         elif data['command'] == 'DELIVER':
             # TODO: implement DB write on delivery
-            if command['sms_no'] in self.msgActive['goipId']:
+            if data['sms_no'] in self.msgActive['goipId']:
                 #message delivered -> write to db
                 log.info("Got delivery report!")
-                del self.msgActive['goipId'][command['sms_no']]
-                log.debug(" ".join("Cleared info concerning active message no.", str(command['sms_no']), "Now active messages are:", str(self.msgActive) ))
+                del self.msgActive['goipId'][data['sms_no']]
+                log.debug(" ".join("Cleared info concerning active message no.", str(data['sms_no']), "Now active messages are:", str(self.msgActive) ))
                 response = data['command'] + " " + str(data[data['command']]) + " OK"
         else:
             log.error("Unrecognized command for outbound SMS!")
