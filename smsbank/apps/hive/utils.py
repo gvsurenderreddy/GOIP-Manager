@@ -53,7 +53,7 @@ class LocalAPIServer(mp.Process):
         sock = None
         address = None
         client_address = None
-        request = []
+        request = None
 
         def __init__(self, address, queue):
             self.address = address
@@ -64,19 +64,19 @@ class LocalAPIServer(mp.Process):
         def serve(self):
             while not self.killFlag:
                 data, addr = self.sock.recvfrom(4096)
-                self.request[0] = data
+                self.request = data
                 self.client_address = addr
                 self.handle()
                 sleep(0.5)
                 
 
         def handle(self):
-            log.debug('We got message on API Listener: ' + str(self.request[0]))
+            log.debug('We got message on API Listener: ' + str(self.request))
             try:
-                realCommand = json.loads(self.request[0])
+                realCommand = json.loads(self.request)
             finally:
                 # TODO: Log This
-                log.error("Unreadable JSON request: " + str(self.request[0]))
+                log.error("Unreadable JSON request: " + str(self.request))
             socket = self.sock
             if realCommand['command'] in ['USSD', 'SMS', 'TERMINATE', 'RESTART']:
                 # TODO: add sanity checks on commands
@@ -93,7 +93,7 @@ class LocalAPIServer(mp.Process):
                 
                     
             else:
-                log.warning('Unsupported command: ' + str(self.request[0]))
+                log.warning('Unsupported command: ' + str(self.request))
                 socket.sendto("400 UNSUPPORTED COMMAND", self.client_address)
 
             """
