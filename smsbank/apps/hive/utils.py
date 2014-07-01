@@ -23,6 +23,7 @@ host = "0.0.0.0"
 devPassword = "123"
 defaultRandomNumber = 4
 killFlag = 0
+log.basicConfig(format = u'%(filename)s[LINE:%(lineno)d]# %(levelname)-8s [%(asctime)s]  %(message)s', level = log.DEBUG)
 
 class LocalAPIServer(mp.Process):
     host = "0.0.0.0"
