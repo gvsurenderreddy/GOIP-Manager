@@ -10,6 +10,9 @@ from django.contrib.auth import(
     authenticate
 )
 
+# External modules
+import redis
+
 # Project modules
 from forms import (
     SMSForm,
@@ -149,6 +152,17 @@ def grunts(request):
             devices = Device.objects.filter(ip=group).order_by('device_id')
         else:
             devices = Device.objects.all().order_by('device_id')
+
+    # Update status for each of the device
+    r = redis.StrictRedis()
+    for device in devices:
+        try:
+            status = r.get(device.device_id)
+            if status:
+                device.online = bool(status)
+                device.save()
+        except redis.ConnectionError:
+            pass
 
     # Additional sort, due to alphanumeric device_id
     devices = sorted(

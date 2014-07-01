@@ -1,5 +1,4 @@
 # encoding: utf-8
-import SocketServer as ss
 import string
 import re
 from __builtin__ import Exception
@@ -11,9 +10,10 @@ import logging as log
 import socket
 #import sys
 
+import redis
+
 from smsbank.apps.hive.services import (
     initialize_device,
-    update_device_status,
     new_sms,
 )
 
@@ -32,7 +32,7 @@ class LocalAPIServer(mp.Process):
     port = 13666
     queue = None
     sender = None
-    
+
 
     def __init__(self, queue):
         mp.Process.__init__(self)
@@ -62,7 +62,7 @@ class LocalAPIServer(mp.Process):
             self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             self.sock.bind(address)
             self.queue = queue
-            
+
         def serve(self):
             while not self.killFlag:
                 data, addr = self.sock.recvfrom(4096)
@@ -70,7 +70,7 @@ class LocalAPIServer(mp.Process):
                 self.client_address = addr
                 self.handle()
                 sleep(0.5)
-                
+
 
         def handle(self):
             log.debug('We got message on API Listener: ' + str(self.request))
@@ -89,10 +89,10 @@ class LocalAPIServer(mp.Process):
                     log.info("Shutting down API Listener")
                     self.killFlag = 1
                 self.queue.put(realCommand)
-                    
+
                 socket.sendto(self.respond(realCommand), self.client_address)
-                
-                    
+
+
             else:
                 log.warning('Unsupported command: ' + str(self.request))
                 socket.sendto("400 UNSUPPORTED COMMAND", self.client_address)
@@ -112,7 +112,7 @@ class LocalAPIServer(mp.Process):
             """ def getQueue(self, queue):
             self.queue = queue
             """
-            
+
 
 
 
@@ -131,13 +131,13 @@ class GoipUDPListener:
     client_address = None
     address = None
     sock = None
-    
+
     def __init__(self, address):
         self.address = address
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.bind(address)
         #self.queue = queue
-            
+
     def serve(self):
         while not self.killFlag.value:
             data, addr = self.sock.recvfrom(4096)
@@ -145,7 +145,7 @@ class GoipUDPListener:
             self.client_address = addr
             self.handle()
             sleep(0.1)
-    
+
     def handle(self):
         sock = self.sock
         log.info("Received request: " + str(self.request))
@@ -175,7 +175,7 @@ class GoipUDPListener:
                 outQueue = self.devPool[query['id']]['queue']
                 outQueue.put(outbound)
 
-        
+
     def terminateProcess(self):
         log.info('Shutdown initiated')
         self.killFlag.value = 1
@@ -193,7 +193,7 @@ class GoipUDPListener:
                 log.critical("Something went wrong! Can't stop process!")
                 log.info(str(self.devPool))
                 log.info(str(self.devPool[process]))
-            
+
 
     def queryDevice(self, devId, passw, auth=0):
         # authState = True
@@ -464,15 +464,18 @@ class deviceWorker(mp.Process):
         if data['command'] == 'req':
             response = 'reg:' + str(data['req']) +';status:200'
             # Update device status
-            '''
+
+            # Set device status in Redis
+            client = redis.Redis()
             try:
-                update_device_status(self.devid, data['gsm_status'])
-            except Exception as e:
-                print 'Database exception: %s' % e
-            finally:
-                return response
-            '''
+                client.set(self.id, data['gsm_status'])
+            except redis.ConnectionError as e:
+                log.error(
+                    'Redis error when updating device status: %s' % e
+                )
+
             return response
+
         #if not regActive(commandData["id"]):
         #    return
 
