@@ -45,6 +45,7 @@ class LocalAPIServer(mp.Process):
         localServer = self.ThreadedUDPServer((self.host, self.port), self.LocalAPIListener)
         localServer.queue = self.queue
         serverThread = threading.Thread(target=localServer.serve_forever)
+        serverThread.daemon = True
         serverThread.start()
         log.debug("API server is running in another thread: " + str(serverThread))
         while not self.killFlag.value:
