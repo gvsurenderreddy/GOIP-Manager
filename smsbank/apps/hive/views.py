@@ -149,7 +149,9 @@ def grunts(request):
     # If admin, re-scan device list
     except DeviceList.DoesNotExist:
         if group:
-            devices = Device.objects.filter(ip=group).order_by('device_id')
+            devices = Device.objects.filter(
+                ip=group
+            ).order_by('device_id')
         else:
             devices = Device.objects.all().order_by('device_id')
 
@@ -169,6 +171,12 @@ def grunts(request):
         devices,
         key=lambda d: int(d.device_id) if d.device_id
         and d.device_id.isdigit() else None
+    )
+
+    # Sort by status
+    devices = sorted(
+        devices,
+        key=lambda d: not d.online
     )
 
     return render(request, 'devices/grunts.html', {
