@@ -104,7 +104,7 @@ class GoipUDPListener(ss.BaseRequestHandler):
     senderQueue = mp.Queue()
     sender = None
     seedDic = mp.Manager().dict()
-    killFlag = mp.Value('h')
+    killFlag = mp.Value('h', 0)
 
     def handle(self):
         sock = self.request[1]
@@ -136,7 +136,7 @@ class GoipUDPListener(ss.BaseRequestHandler):
         
     def terminateProcess(self):
         log.info('Shutdown initiated')
-        self.killFlag = 1
+        self.killFlag.value = 1
         log.debug('Waiting for child processes to finish')
         sleep(5)
         for process in self.devPool:
@@ -240,7 +240,7 @@ class deviceWorker(mp.Process):
     gsm = None
     signal = None
     expiryTime = None
-    killFlag = 0
+    killFlag = None
     password = None
 
     msgActive = {}
@@ -281,13 +281,13 @@ class deviceWorker(mp.Process):
         '''
         Main worker function
         '''
-        while self.killFlag == 0:
+        while not self.killFlag.value:
             if not self.queueIn.empty():
                 self.processRequest()
             else:
                 sleep(1)
                 log.debug("Nothing to do. Sleeping 1.")
-        log.debug("killFlag is now: " + str(self.killFlag))
+        log.debug("killFlag is now: " + str(self.killFlag.value))
         log.info('deviceWorker daemon instance is stopping!')
 
     def processRequest(self):
