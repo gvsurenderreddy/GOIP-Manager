@@ -177,7 +177,7 @@ class GoipUDPListener(ss.BaseRequestHandler):
         command['command'] = self.getCommand(data)
         log.debug("Command implied by query: " + str(command['command']))
         if command['command'] in ['req', 'CGATT', 'CELLINFO', 'STATE', 'EXPIRY', 'RECEIVE', 'DELIVER']:
-            reqdata = string.split(data, ";")
+            reqdata = string.split(data[0:-1], ";")
             if len(reqdata) < 2:
                 log.warn("Inconsistent data received. Parse failed.")
                 return False
