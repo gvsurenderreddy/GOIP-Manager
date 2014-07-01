@@ -166,16 +166,16 @@ class GoipUDPListener(ss.BaseRequestHandler):
         sleep(5)
         for process in self.devPool:
             try:
-                process['device'].join()
-                if process['device'].is_alive():
+                self.devPool[process]['device'].join()
+                if self.devPool[process]['device'].is_alive():
                     log.warn("Device worker is not closed! Trying to terminate")
-                    process['device'].terminate()
-                if process['device'].is_alive():
+                    self.devPool[process]['device'].terminate()
+                if self.devPool[process]['device'].is_alive():
                     log.error("Device worker is stall and cannot be terminated")
             except:
                 log.critical("Something went wrong! Can't stop process!")
                 log.info(str(self.devPool))
-                log.info(str(process))
+                log.info(str(self.devPool[process]))
         sys.exit()
             
 
