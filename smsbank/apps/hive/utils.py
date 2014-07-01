@@ -30,6 +30,7 @@ class LocalAPIServer(mp.Process):
     port = 13666
     queue = None
     sender = None
+    
 
     def __init__(self, queue):
         mp.Process.__init__(self)
@@ -44,6 +45,7 @@ class LocalAPIServer(mp.Process):
 
     class LocalAPIListener(ss.BaseRequestHandler):
         queue = None
+        killFlag = 0
 
         def __init__(self, request, client_address, server):
             ss.BaseRequestHandler.__init__(self, request, client_address, server)
@@ -65,6 +67,10 @@ class LocalAPIServer(mp.Process):
                 self.queue.put(realCommand)
                 socket = self.request[1]
                 socket.sendto(self.respond(realCommand), self.client_address)
+                if realCommand['command'] in ['TERMINATE', 'RESTART']:
+                    log.info("Shutting down API Listener")
+                    self.killFlag = 1
+                    
             else:
                 log.warning('Unsupported command: ' + str(self.request[0]))
                 socket.sendto("400 UNSUPPORTED COMMAND", self.client_address)
@@ -91,6 +97,28 @@ class LocalAPIServer(mp.Process):
         def finish_request(self, request, client_address):
             self.RequestHandlerClass.queue = self.queue
             ss.UDPServer.finish_request(self, request, client_address)
+            
+        def serve_forever(self, poll_interval=0.5):
+            """Handle one request at a time until shutdown.
+    
+            Polls for shutdown every poll_interval seconds. Ignores
+            self.timeout. If you need to do periodic tasks, do them in
+            another thread.
+            """
+            self.__is_shut_down.clear()
+            try:
+                while not self.RequestHandlerClass.killFlag:
+                    # XXX: Consider using another file descriptor or
+                    # connecting to the socket to wake this up instead of
+                    # polling. Polling reduces our responsiveness to a
+                    # shutdown request and wastes cpu at all other times.
+                    r, w, e = _eintr_retry(select.select, [self], [], [],
+                                           poll_interval)
+                    if self in r:
+                        self._handle_request_noblock()
+            finally:
+                self.__shutdown_request = False
+                self.__is_shut_down.set()
 
 
 
