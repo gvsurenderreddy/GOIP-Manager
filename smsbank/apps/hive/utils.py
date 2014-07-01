@@ -105,7 +105,7 @@ class LocalAPIServer(mp.Process):
             self.timeout. If you need to do periodic tasks, do them in
             another thread.
             """
-            self.__is_shut_down.clear()
+            #self.__is_shut_down.clear()
             try:
                 while not self.RequestHandlerClass.killFlag:
                     # XXX: Consider using another file descriptor or
