@@ -24,7 +24,7 @@ host = "0.0.0.0"
 devPassword = "123"
 defaultRandomNumber = 4
 killFlag = 0
-log.basicConfig(format = u'%(filename)s[LINE:%(lineno)d]# %(levelname)-8s [%(asctime)s]  %(message)s', level = log.DEBUG)
+log.basicConfig(format = u'%(filename)s[LINE:%(lineno)d]# %(levelname)-8s [%(asctime)s]  %(message)s', level = log.INFO)
 
 class LocalAPIServer(mp.Process):
     host = "0.0.0.0"
@@ -43,6 +43,7 @@ class LocalAPIServer(mp.Process):
         #locaServer = self.QueuedServer((self.host, self.port), self.LocalAPIListener)
         #locaServer.queue = self.queue
         #locaServer.serve_forever()
+        log.basicConfig(format = u'%(filename)s[LINE:%(lineno)d]# %(levelname)-8s [%(asctime)s]  %(message)s', level = log.DEBUG)
         localServer = self.LocalAPIListener((self.host, self.port), self.queue)
         localServer.serve()
         log.info("Local API server process is shutting down")
