@@ -170,7 +170,7 @@ class GoipUDPListener:
             outbound = apiQueue.get()
             if outbound['command'] == 'TERMINATE':
                 self.terminateProcess()
-            if self.deviceActive(outbound['id']):
+            elif self.deviceActive(outbound['id']):
                 print self.devPool[query['id']]['queue']
                 outQueue = self.devPool[query['id']]['queue']
                 outQueue.put(outbound)
