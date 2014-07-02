@@ -8,7 +8,6 @@ from time import sleep
 import random
 import logging as log
 import socket
-#import sys
 
 import redis
 
@@ -25,7 +24,14 @@ host = "0.0.0.0"
 devPassword = "123"
 defaultRandomNumber = 4
 killFlag = 0
-log.basicConfig(format = u'%(filename)s[LINE:%(lineno)d]# %(levelname)-8s [%(asctime)s]  %(message)s', level = log.INFO)
+log.basicConfig(
+    format=(
+        u'%(filename)s[LINE:%(lineno)d]# %(levelname)-8s '
+        u'[%(asctime)s] %(message)s'
+    ),
+    level=log.INFO
+)
+
 
 class LocalAPIServer(mp.Process):
     host = "0.0.0.0"
@@ -33,18 +39,18 @@ class LocalAPIServer(mp.Process):
     queue = None
     sender = None
 
-
     def __init__(self, queue):
         mp.Process.__init__(self)
-        #self.socket = socket
         self.queue = queue
 
-
     def run(self):
-        #locaServer = self.QueuedServer((self.host, self.port), self.LocalAPIListener)
-        #locaServer.queue = self.queue
-        #locaServer.serve_forever()
-        log.basicConfig(format = u'%(filename)s[LINE:%(lineno)d]# %(levelname)-8s [%(asctime)s]  %(message)s', level = log.DEBUG)
+        log.basicConfig(
+            format=(
+                u'%(filename)s[LINE:%(lineno)d]# %(levelname)-8s '
+                u'[%(asctime)s]  %(message)s'
+            ),
+            level=log.DEBUG
+        )
         localServer = self.LocalAPIListener((self.host, self.port), self.queue)
         localServer.serve()
         log.info("Local API server process is shutting down")
@@ -71,7 +77,6 @@ class LocalAPIServer(mp.Process):
                 self.handle()
                 sleep(0.5)
 
-
         def handle(self):
             log.debug('We got message on API Listener: ' + str(self.request))
             try:
@@ -80,7 +85,12 @@ class LocalAPIServer(mp.Process):
                 # TODO: Log This
                 log.error("Unreadable JSON request: " + str(self.request))
             socket = self.sock
-            if realCommand['command'] in ['USSD', 'SMS', 'TERMINATE', 'RESTART']:
+            if realCommand['command'] in [
+                'USSD',
+                'SMS',
+                'TERMINATE',
+                'RESTART'
+            ]:
                 # TODO: add sanity checks on commands
                 if realCommand['command'] in ['USSD', 'SMS']:
                     realCommand['seed'] = random.randrange(200000, 299999)
@@ -91,7 +101,6 @@ class LocalAPIServer(mp.Process):
                 self.queue.put(realCommand)
 
                 socket.sendto(self.respond(realCommand), self.client_address)
-
 
             else:
                 log.warning('Unsupported command: ' + str(self.request))
@@ -114,8 +123,6 @@ class LocalAPIServer(mp.Process):
             """
 
 
-
-
 class GoipUDPListener:
     """
     This class works similar to the TCP handler class, except that
@@ -136,7 +143,6 @@ class GoipUDPListener:
         self.address = address
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.bind(address)
-        #self.queue = queue
 
     def serve(self):
         while not self.killFlag.value:
@@ -150,16 +156,16 @@ class GoipUDPListener:
         sock = self.sock
         log.info("Received request: " + str(self.request))
         query = self.parseRequest(self.request)
-        if query != False:
+        if query is not False:
             log.debug('Current query:' + str(query))
             log.debug('Current device pool :' + str(self.devPool))
             self.queryDevice(query['id'], query['pass'])
             queue = self.devPool[query['id']]['queue']
             queue.put(query)
         else:
-            log.info("Unsupported command") # TODO: Log ALL unsupported commands to file
+            # TODO: Log ALL unsupported commands to file
+            log.info("Unsupported command")
         log.debug("Process count: " + str(len(self.devPool)))
-
 
         if not self.senderQueue.empty():
             while not self.senderQueue.empty():
@@ -175,7 +181,6 @@ class GoipUDPListener:
                 outQueue = self.devPool[query['id']]['queue']
                 outQueue.put(outbound)
 
-
     def terminateProcess(self):
         log.info('Shutdown initiated')
         self.killFlag.value = 1
@@ -185,22 +190,32 @@ class GoipUDPListener:
             try:
                 self.devPool[process]['device'].join()
                 if self.devPool[process]['device'].is_alive():
-                    log.warn("Device worker is not closed! Trying to terminate")
+                    log.warn(
+                        "Device worker is not closed! Trying to terminate"
+                    )
                     self.devPool[process]['device'].terminate()
                 if self.devPool[process]['device'].is_alive():
-                    log.error("Device worker is stall and cannot be terminated")
+                    log.error(
+                        "Device worker is stall and cannot be terminated"
+                    )
             except:
                 log.critical("Something went wrong! Can't stop process!")
                 log.info(str(self.devPool))
                 log.info(str(self.devPool[process]))
-
 
     def queryDevice(self, devId, passw, auth=0):
         # authState = True
         authState = self.authDevice(devId, passw, self.client_address)
         if (not self.deviceActive(devId) and authState):
             queue = mp.Queue()
-            device = deviceWorker(devId, self.client_address, queue, self.senderQueue, self.seedDic, self.killFlag)
+            device = deviceWorker(
+                devId,
+                self.client_address,
+                queue,
+                self.senderQueue,
+                self.seedDic,
+                self.killFlag
+            )
             device.daemon = True
             device.start()
             self.devPool[devId] = {}
@@ -217,7 +232,7 @@ class GoipUDPListener:
     def getCommand(self, data):
         # NB: may blow up when processing dubious data
         newdata = re.search('^([a-zA-Z]+)', data)
-        if newdata == None:
+        if newdata is None:
             return False
         return newdata.group(0)
 
@@ -225,15 +240,25 @@ class GoipUDPListener:
         command = {}
         command['command'] = self.getCommand(data)
         log.debug("Command implied by query: " + str(command['command']))
-        if command['command'] in ['req', 'CGATT', 'CELLINFO', 'STATE', 'EXPIRY', 'RECEIVE', 'DELIVER']:
+        if command['command'] in [
+            'req',
+            'CGATT',
+            'CELLINFO',
+            'STATE',
+            'EXPIRY',
+            'RECEIVE',
+            'DELIVER'
+        ]:
             reqdata = string.split(data[0:-1], ";")
             if len(reqdata) < 2:
                 log.warn("Inconsistent data received. Parse failed.")
                 return False
             for comBun in reqdata:
                 if string.find(comBun, ":") != -1:
-                    tmp = string.split(comBun,":")
-                    if tmp[0] == 'password':    #correcting for Chinese protocol unevenness, when sometimes its 'pass' and sometimes its 'password'
+                    tmp = string.split(comBun, ":")
+                    # correcting for Chinese protocol unevenness,
+                    # when sometimes its 'pass' and sometimes its 'password'
+                    if tmp[0] == 'password':
                         tmp[0] = 'pass'
                     command[tmp[0]] = tmp[1]
                 else:
@@ -241,18 +266,30 @@ class GoipUDPListener:
             if command['command'] == 'RECEIVE':
                 msgIndex = data.find('msg:') + 4
                 command['msg'] = data[msgIndex:]
-        elif command['command'] in ['MSG', 'USSD', 'PASSWORD', 'SEND', 'WAIT', 'DONE', 'OK']:
+        elif command['command'] in [
+            'MSG',
+            'USSD',
+            'PASSWORD',
+            'SEND',
+            'WAIT',
+            'DONE',
+            'OK'
+        ]:
             command['seed'] = data.split()[1]
             command['data'] = data
             if 'id' not in command:
-                for device in self.devPool: #iterating over a dictionary, so we are getting KEYS
+                # iterating over a dictionary, so we are getting KEYS
+                for device in self.devPool:
                     if self.devPool[device]['address'] == self.client_address:
                         command['id'] = device
                         idFound = True
                         command['pass'] = devPassword
                         # TODO: check if seed correspond with source host
                 if not idFound:
-                    log.error('Cannot identify device with command. Command without id came from unregistered device!')
+                    log.error(
+                        'Cannot identify device with command.'
+                        'Command without id came from unregistered device!'
+                    )
                     log.error("Command we got: " + str(data))
                     return False
         else:
@@ -262,18 +299,20 @@ class GoipUDPListener:
 
     def authDevice(self, devid, password, host):
         '''
-        Must check existence of such device id in DB and check password afterwards
+        Must check existence of such device id in DB
+        and check password afterwards
         '''
         if password == devPassword:
             try:
                 initialize_device(devid, host[0], host[1])
             except Exception as e:
-                print 'Database exception: %s' % e
+                log.error('Database exception: %s' % e)
                 return False
 
             return True
 
         return False
+
 
 class deviceWorker(mp.Process):
     devid = None
@@ -320,11 +359,6 @@ class deviceWorker(mp.Process):
                       'done':       6,
                       'delivered':  7,
                       }
-        #print host
-        #print "mein Konstruktor: " + str(self.devid)
-        #self.newRun()
-
-
 
     def run(self):
         '''
@@ -344,9 +378,26 @@ class deviceWorker(mp.Process):
         response['host'] = self.host
         while not self.queueIn.empty():
             data = self.queueIn.get()
-            if data['command'] in ['req', 'CGATT', 'CELLINFO', 'STATE', 'EXPIRY']:
+            if data['command'] in [
+                'req',
+                'CGATT',
+                'CELLINFO',
+                'STATE',
+                'EXPIRY'
+            ]:
                 response['data'] = self.processServiceRequest(data)
-            elif data['command'] in ['MSG', 'USSD', 'PASSWORD', 'SEND', 'WAIT', 'DONE', 'OK', 'SMS', 'USSD', 'DELIVER']:
+            elif data['command'] in [
+                'MSG',
+                'USSD',
+                'PASSWORD',
+                'SEND',
+                'WAIT',
+                'DONE',
+                'OK',
+                'SMS',
+                'USSD',
+                'DELIVER'
+            ]:
                 response['data'] = self.processOutbound(data)
             elif data['command'] in ['RECEIVE', ]:
                 response['data'] = self.processInboundSMS(data)
@@ -359,7 +410,7 @@ class deviceWorker(mp.Process):
                 self.queueOut.put(response)
 
     def processOutbound(self, data):
-        #implement actual sms tracking
+        # TODO: implement actual sms tracking
         log.debug("Outbound SMS processing. Data: " + str(data))
         if data['command'] == 'SMS':
             self.msgCount += 1
@@ -371,11 +422,14 @@ class deviceWorker(mp.Process):
             log.info("New outbound SMS! Seed " + str(data['seed']))
         response = ""
         if data['command'] == 'DELIVER':
-            return "DELIVER OK" #not implemented
+            return "DELIVER OK"  # NB: not implemented
         if 'seed' in data:
             data['seed'] = int(data['seed'])
 
-        if not (data['seed'] in self.msgActive) or data['command'] == "DELIVER":
+        if not (
+            (data['seed'] in self.msgActive) or
+            data['command'] == "DELIVER"
+        ):
             return
         elif data['seed'] in self.msgActive:
             message = self.msgActive[data['seed']]
@@ -384,18 +438,37 @@ class deviceWorker(mp.Process):
             message['state'] = self.state['new']
             message['message'] = data['data']['message']
             message['recipient'] = data['data']['recipient']
-            response = " ".join(["MSG", str(data['seed']), str(len(data['data']['message'])), str(data['data']['message'])])
+            response = " ".join([
+                "MSG",
+                str(data['seed']),
+                str(len(data['data']['message'])),
+                str(data['data']['message'])
+            ])
         elif data['command'] == 'PASSWORD':
             message['state'] = self.state['auth']
-            response = " ".join([data['command'], str(data['seed']), devPassword])
+            response = " ".join([
+                data['command'],
+                str(data['seed']),
+                devPassword
+            ])
         elif data['command'] == 'SEND':
             message['state'] = self.state['send']
-            response = " ".join([data['command'], str(data['seed']), str(message['locId']), message['recipient']])
+            response = " ".join(
+                [data['command'],
+                 str(data['seed']),
+                 str(message['locId']),
+                 message['recipient']]
+            )
         elif data['command'] == 'WAIT':
             message['state'] = self.state['waiting']
         elif data['command'] == 'OK':
             goipId = data['data'].split()[3]
-            log.debug(" ".join("Message with seed ", message['seed'], "got following GoIP id: ", goipId))
+            log.debug(" ".join(
+                "Message with seed ",
+                message['seed'],
+                "got following GoIP id: ",
+                goipId
+            ))
             self.msgActive['goipId'][goipId] = message
             message['state'] = self.state['sent']
             response = " ".join(["DONE", str(data['seed'])])
@@ -406,6 +479,7 @@ class deviceWorker(mp.Process):
             del self.msgActive[data['seed']]
             # Save outbound sms to database
             try:
+                # TODO: check for racing condition / use REDIS
                 new_sms(
                     message['recipient'],
                     message['message'],
@@ -413,25 +487,32 @@ class deviceWorker(mp.Process):
                     self.devid
                 )
             except Exception as e:
-                print 'Database exception: %s' % e
+                log.error(
+                    'Database exception when saving outbound SMS: %s' % e
+                )
 
         elif data['command'] == 'DELIVER':
             # TODO: implement DB write on delivery
             if data['sms_no'] in self.msgActive['goipId']:
-                #message delivered -> write to db
+                # message delivered -> write to db
                 log.info("Got delivery report!")
                 del self.msgActive['goipId'][data['sms_no']]
-                log.debug(" ".join("Cleared info concerning active message no.", str(data['sms_no']), "Now active messages are:", str(self.msgActive) ))
-                response = data['command'] + " " + str(data[data['command']]) + " OK"
+                log.debug(" ".join(
+                    "Cleared info concerning active message no.",
+                    str(data['sms_no']),
+                    "Now active messages are:",
+                    str(self.msgActive)
+                ))
+                response = (
+                    data['command'] + " " + str(data[data['command']]) + " OK"
+                )
         else:
             log.error("Unrecognized command for outbound SMS!")
             raise Exception
 
-
-
-        # TODO: fix UnboundLocalError: local variable 'response' referenced before assignment
+        # TODO: fix UnboundLocalError: local variable 'response' referenced
+        # before assignment
         return response
-
 
     def msgIdIntersectionCheck(self, msgId):
         while msgId in self.msgActive:
@@ -448,6 +529,7 @@ class deviceWorker(mp.Process):
 
         # Save inbound sms to database
         try:
+            # TODO: check for racing condition / use REDIS
             new_sms(
                 data['srcnum'],
                 data['msg'],
@@ -455,14 +537,15 @@ class deviceWorker(mp.Process):
                 self.devid
             )
         except Exception as e:
-            print 'Database exception: %s' % e
+            log.error(
+                'Database exception when saving inbound SMS: %s' % e
+            )
 
         return response
 
-
     def processServiceRequest(self, data):
         if data['command'] == 'req':
-            response = 'reg:' + str(data['req']) +';status:200'
+            response = 'reg:' + str(data['req']) + ';status:200'
             # Update device status
 
             # Set device status in Redis
@@ -475,9 +558,6 @@ class deviceWorker(mp.Process):
                 )
 
             return response
-
-        #if not regActive(commandData["id"]):
-        #    return
 
         if data['command'] == 'CGATT':
             self.cgatt = data['cgatt']
