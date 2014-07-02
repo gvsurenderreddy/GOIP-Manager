@@ -8,7 +8,6 @@ from time import sleep
 import random
 import logging as log
 import socket
-
 import redis
 
 from smsbank.apps.hive.services import (
@@ -26,7 +25,7 @@ defaultRandomNumber = 4
 killFlag = 0
 log.basicConfig(
     format=(
-        u'%(filename)s[LINE:%(lineno)d]# %(levelname)-8s '
+        u'%(filename)s %(process)d [LINE:%(lineno)d]# %(levelname)-8s '
         u'[%(asctime)s] %(message)s'
     ),
     level=log.INFO
@@ -46,10 +45,10 @@ class LocalAPIServer(mp.Process):
     def run(self):
         log.basicConfig(
             format=(
-                u'%(filename)s[LINE:%(lineno)d]# %(levelname)-8s '
+                u'%(filename)s %(process)d [LINE:%(lineno)d]# %(levelname)-8s '
                 u'[%(asctime)s]  %(message)s'
             ),
-            level=log.DEBUG
+            level=log.INFO
         )
         localServer = self.LocalAPIListener((self.host, self.port), self.queue)
         localServer.serve()
@@ -184,7 +183,7 @@ class GoipUDPListener:
     def terminateProcess(self):
         log.info('Shutdown initiated')
         self.killFlag.value = 1
-        log.debug('Waiting for child processes to finish')
+        log.info('Waiting for child processes to finish')
         sleep(5)
         for process in self.devPool:
             try:
@@ -463,7 +462,7 @@ class deviceWorker(mp.Process):
             message['state'] = self.state['waiting']
         elif data['command'] == 'OK':
             goipId = data['data'].split()[3]
-            log.debug(" ".join(
+            log.info(" ".join(
                 "Message with seed ",
                 message['seed'],
                 "got following GoIP id: ",
@@ -497,7 +496,7 @@ class deviceWorker(mp.Process):
                 # message delivered -> write to db
                 log.info("Got delivery report!")
                 del self.msgActive['goipId'][data['sms_no']]
-                log.debug(" ".join(
+                log.info(" ".join(
                     "Cleared info concerning active message no.",
                     str(data['sms_no']),
                     "Now active messages are:",
