@@ -8,6 +8,8 @@ from time import sleep
 import random
 import logging as log
 import socket
+
+from django.db import connection
 import redis
 
 from smsbank.apps.hive.services import (
@@ -206,6 +208,10 @@ class GoipUDPListener:
         # authState = True
         authState = self.authDevice(devId, passw, self.client_address)
         if (not self.deviceActive(devId) and authState):
+            # Close parent DB connection, so that children won't inherit it when forking
+            connection.close()
+
+            # Initialize device worker
             queue = mp.Queue()
             device = deviceWorker(
                 devId,
@@ -216,6 +222,8 @@ class GoipUDPListener:
                 self.killFlag
             )
             device.daemon = True
+            
+            # Launch device worker and update device pool
             device.start()
             self.devPool[devId] = {}
             self.devPool[devId]['device'] = device
@@ -305,7 +313,7 @@ class GoipUDPListener:
             try:
                 initialize_device(devid, host[0], host[1])
             except Exception as e:
-                log.error('Database exception: %s' % e)
+                log.error('Database exception when authorizing: %s' % e)
                 return False
 
             return True
