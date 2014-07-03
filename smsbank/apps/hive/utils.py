@@ -265,6 +265,14 @@ class GoipUDPListener:
             if command['command'] == 'RECEIVE':
                 msgIndex = data.find('msg:') + 4
                 command['msg'] = data[msgIndex:]
+                # device Id - connection check-override
+                devId = self.getDeviceIdByConnection(command)
+                if not devId:
+                    log.warn("Message from unregistered device! Skipping.")
+                elif devId != command['id']:
+                    log.warn("Conflicting device id in message! Overriding.")
+                    command['id'] = devId
+                    
         elif command['command'] in [
             'MSG',
             'USSD',
@@ -277,24 +285,31 @@ class GoipUDPListener:
             command['seed'] = data.split()[1]
             command['data'] = data
             if 'id' not in command:
-                # iterating over a dictionary, so we are getting KEYS
-                for device in self.devPool:
-                    if self.devPool[device]['address'] == self.client_address:
-                        command['id'] = device
-                        idFound = True
-                        command['pass'] = devPassword
-                        # TODO: check if seed correspond with source host
-                if not idFound:
-                    log.error(
-                        'Cannot identify device with command.'
-                        'Command without id came from unregistered device!'
-                    )
-                    log.error("Command we got: " + str(data))
+                command['id'] = self.getDeviceIdByConnection(command)
+                if not command['id']:
+                    log.error("Unable to get device ID")
                     return False
         else:
             log.error("Received command is unsupported")
             return False
         return command
+    
+    def getDeviceIdByConnection(self, command):
+        # iterating over a dictionary, so we are getting KEYS
+        for device in self.devPool:
+            if self.devPool[device]['address'] == self.client_address:
+                command['id'] = device
+                idFound = True
+                command['pass'] = devPassword
+                return device
+                # TODO: check if seed correspond with source host
+        if not idFound:
+            log.error(
+                'Cannot identify device with command.'
+                'Command without id came from unregistered device!'
+            )
+            log.error("Command we got: " + str(command['data']))
+            return False
 
     def authDevice(self, devid, password, host):
         '''
@@ -307,9 +322,7 @@ class GoipUDPListener:
             except Exception as e:
                 log.error('Database exception: %s' % e)
                 return False
-
             return True
-
         return False
 
 
