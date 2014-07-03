@@ -45,7 +45,7 @@ def get_device_by_id(device_id):
 
 def list_sms(device, inbox=False):
     """Get SMS sent from the device"""
-    return Sms.objects.filter(device=device, inbox=inbox)
+    return Sms.objects.filter(device=device, inbox=inbox).order_by('-date')
 
 ###########################
 # Methods for GOIP Daemon #
@@ -70,7 +70,8 @@ def initialize_device(device_id, ip, port, online=True):
             device_id=device_id,
             online=online
         )
-        # Re-open database connection in case of invalid reference passed in fork
+        # Re-open database connection
+        # in case of invalid reference passed in fork
         try:
             device.save()
         except InterfaceError:
