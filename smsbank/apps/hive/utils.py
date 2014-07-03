@@ -526,6 +526,7 @@ class deviceWorker(mp.Process):
                 response = (
                     data['command'] + " " + str(data[data['command']]) + " OK"
                 )
+                
         else:
             log.error("Unrecognized command for outbound SMS!")
             raise Exception
