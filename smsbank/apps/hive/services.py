@@ -1,6 +1,9 @@
 # encoding: utf-8
 # Services go here or (in case of MUCH SERVICE) to services/
 
+from django.db.utils import InterfaceError
+from django.db import connection
+
 
 from smsbank.apps.hive.models import (
     Device,
@@ -67,7 +70,12 @@ def initialize_device(device_id, ip, port, online=True):
             device_id=device_id,
             online=online
         )
-        device.save()
+        # Re-open database connection in case of invalid reference passed in fork
+        try:
+            device.save()
+        except InterfaceError:
+            connection.close()
+            device.save()
 
     return device
 
@@ -88,7 +96,13 @@ def new_sms(recipient, message, inbox=False, device_id=None):
             if device:
                 sms.device = device
 
-    sms.save()
+    # Try to reopen database connection if something goes wrong
+    try:
+        sms.save()
+    except InterfaceError:
+        connection.close()
+        sms.save()
+
     return sms
 
 
