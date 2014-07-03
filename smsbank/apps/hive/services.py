@@ -47,6 +47,12 @@ def list_sms(device, inbox=False):
     """Get SMS sent from the device"""
     return Sms.objects.filter(device=device, inbox=inbox).order_by('-date')
 
+
+def delete_sms(id):
+    """Delete SMS by id"""
+    Sms.objects.filter(id=id).delete()
+
+
 ###########################
 # Methods for GOIP Daemon #
 ###########################

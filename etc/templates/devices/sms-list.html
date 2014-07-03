@@ -4,6 +4,10 @@
     <p>NB: иногда вместо номера может отображаться зарегистрированное имя</p>
 </div>
 
+{% if sms_deleted %}
+<div class="alert alert-success">СМС удалено!</div>
+{% endif %}
+
 <!-- SMS list -->
 <div class="panel panel-default">
 
@@ -33,6 +37,14 @@
   </div>
 
   <!-- SMS list -->
+  <form action="{% if inbox %}
+      {% url 'grunt-list-inbox' grunt.id %}
+    {% else %}
+      {% url 'grunt-list' grunt.id %}
+    {% endif %}"
+    method="POST">
+  {% csrf_token %}
+
   <table class="table table-hover table-striped table-bordered">
     <thead>
           <tr>
@@ -52,6 +64,11 @@
       <td>{{ sms.recipient }} </td>
       <td>{{ sms.message }} </td>
       <td>{{ sms.date }} </td>
+      <td class="text-center">
+        <button type="submit" name="sms_to_delete" value="{{sms.id}}"
+          class="btn btn-danger btn-xs">Удалить
+        </button>
+      </td>
     </tr>
     {% endfor %}
 
@@ -66,5 +83,6 @@
     {% endif %}
 
   </table>
+  </form>
 
 </div>
