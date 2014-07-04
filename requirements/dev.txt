@@ -1,11 +1,10 @@
 # This file contains Python dependencies for development only.
-Django==1.6.5
-South==0.8.4
-gunicorn==18.0
-wsgiref==0.1.2
-django-suit==0.2.8
-MySQL-python==1.2.5
 bpython==0.13
-Fabric==1.9.0
-redis==2.10.1
 celery==3.1.12
+django-suit==0.2.9
+Django==1.6.5
+Fabric==1.9.0
+gunicorn==19.0.0
+MySQL-python==1.2.5
+redis==2.10.1
+South==1.0

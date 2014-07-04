@@ -1,8 +1,8 @@
 # This file contains common Python dependencies for all circumstances.
+celery==3.1.12
+django-suit==0.2.9
 Django==1.6.5
-South==0.8.4
-gunicorn==18.0
-django-suit==0.2.8
-wsgiref==0.1.2
+gunicorn==19.0.0
 MySQL-python==1.2.5
 redis==2.10.1
+South==1.0
