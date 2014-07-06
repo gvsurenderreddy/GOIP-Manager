@@ -144,11 +144,16 @@ class GoipUDPListener:
         self.sock.bind(address)
 
     def serve(self):
+        timer = random.randrange(1000, 3000)
         while not self.killFlag.value:
             data, addr = self.sock.recvfrom(4096)
             self.request = data
             self.client_address = addr
             self.handle()
+            timer -= 1
+            if timer < 0:
+                self.devPoolCheck()
+                timer = random.randrange(1000, 3000)
             sleep(0.1)
 
     def handle(self):
