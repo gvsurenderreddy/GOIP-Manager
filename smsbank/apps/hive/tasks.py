@@ -3,7 +3,7 @@ from __future__ import absolute_import
 
 from celery import shared_task
 
-from services import new_sms, initialize_device
+from smsbank.apps.hive.services import new_sms, initialize_device
 
 
 @shared_task
