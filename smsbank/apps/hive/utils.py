@@ -91,8 +91,8 @@ class LocalAPIServer(mp.Process):
                 'SMS',
                 'TERMINATE',
                 'RESTART',
-                #'REBOOT',
-                #'SHUTDOWN'
+                # 'REBOOT',
+                # 'SHUTDOWN'
             ]:
                 # TODO: add sanity checks on commands
                 if realCommand['command'] in ['USSD', 'SMS']:
@@ -191,7 +191,7 @@ class GoipUDPListener:
                 outQueue = self.devPool[query['id']]['queue']
                 outQueue.put(outbound)
 
-    def terminateProcess(self, reboot = False):
+    def terminateProcess(self, reboot=False):
         log.info('Shutdown initiated')
         self.killFlag.value = 1
         log.info('Waiting for child processes to finish')
@@ -212,11 +212,10 @@ class GoipUDPListener:
                 log.critical("Something went wrong! Can't stop process!")
                 log.info(str(self.devPool))
                 log.info(str(self.devPool[process]))
-        if reboot == True:
+        if reboot:
             self.devPoolCheck()
             self.killFlag.value = 1
-            
-            
+
     def queryDevice(self, devId, passw, auth=0):
         # authState = True
         authState = self.authDevice(devId, passw, self.client_address)
@@ -556,10 +555,16 @@ class deviceWorker(mp.Process):
         """
         RECEIVE:1403245796;id:1;password:123;srcnum:+79520999249;msg:MSGBODY
         """
-        # TODO: log this!
         log.info("Got message. Presumably. Raw data:" + str(data))
         response = " ".join(['RECEIVE', data['RECEIVE'], 'OK'])
-        print response
+
+        # Save inbound sms to database
+        create_sms.delay(
+            data['srcnum'],
+            data['msg'],
+            True,
+            self.devid
+        )
 
         return response
 
