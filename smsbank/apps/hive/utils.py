@@ -12,10 +12,6 @@ import socket
 from django.db import connection
 import redis
 
-# from smsbank.apps.hive.services import (
-#     initialize_device,
-#     new_sms,
-# )
 from smsbank.apps.hive.tasks import (
     create_sms,
     auth_device
@@ -311,7 +307,7 @@ class GoipUDPListener:
             log.error("Received command is unsupported")
             return False
         return command
-    
+
     def devPoolCheck(self):
         for device in self.devPool:
             if not self.devPool[device]['device'].is_alive():
@@ -343,15 +339,6 @@ class GoipUDPListener:
         '''
         if password == devPassword:
             auth_device.delay(devid, host[0], host[1])
-
-            '''
-            try:
-                initialize_device(devid, host[0], host[1])
-            except Exception as e:
-                log.error('Database exception when authorizing: %s' % e)
-                return False
-            '''
-
             return True
 
         return False
@@ -528,21 +515,6 @@ class deviceWorker(mp.Process):
                 self.devid
             )
 
-            '''
-            try:
-                # TODO: check for racing condition / use REDIS
-                new_sms(
-                    message['recipient'],
-                    message['message'],
-                    False,
-                    self.devid
-                )
-            except Exception as e:
-                log.error(
-                    'Database exception when saving outbound SMS: %s' % e
-                )
-            '''
-
         elif data['command'] == 'DELIVER':
             # TODO: implement DB write on delivery
             if data['sms_no'] in self.msgActive['goipId']:
@@ -579,28 +551,6 @@ class deviceWorker(mp.Process):
         log.info("Got message. Presumably. Raw data:" + str(data))
         response = " ".join(['RECEIVE', data['RECEIVE'], 'OK'])
         print response
-
-        # Save inbound sms to database
-        create_sms.delay(
-            data['srcnum'],
-            data['msg'],
-            True,
-            self.devid
-        )
-        '''
-        try:
-            # TODO: check for racing condition / use REDIS
-            new_sms(
-                data['srcnum'],
-                data['msg'],
-                True,
-                self.devid
-            )
-        except Exception as e:
-            log.error(
-                'Database exception when saving inbound SMS: %s' % e
-            )
-        '''
 
         return response
 
