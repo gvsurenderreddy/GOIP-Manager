@@ -90,13 +90,15 @@ class LocalAPIServer(mp.Process):
                 'USSD',
                 'SMS',
                 'TERMINATE',
-                'RESTART'
+                'RESTART',
+                #'REBOOT',
+                #'SHUTDOWN'
             ]:
                 # TODO: add sanity checks on commands
                 if realCommand['command'] in ['USSD', 'SMS']:
                     realCommand['seed'] = random.randrange(200000, 299999)
                 log.debug('Put command on queue: ' + str(realCommand))
-                if realCommand['command'] in ['TERMINATE', 'RESTART']:
+                if realCommand['command'] in ['TERMINATE']:
                     log.info("Shutting down API Listener")
                     self.killFlag = 1
                 self.queue.put(realCommand)
@@ -182,12 +184,14 @@ class GoipUDPListener:
             outbound = apiQueue.get()
             if outbound['command'] == 'TERMINATE':
                 self.terminateProcess()
+            elif outbound['command'] == 'RESTART':
+                self.terminateProcess(True)
             elif self.deviceActive(outbound['id']):
                 print self.devPool[query['id']]['queue']
                 outQueue = self.devPool[query['id']]['queue']
                 outQueue.put(outbound)
 
-    def terminateProcess(self):
+    def terminateProcess(self, reboot = False):
         log.info('Shutdown initiated')
         self.killFlag.value = 1
         log.info('Waiting for child processes to finish')
@@ -208,7 +212,11 @@ class GoipUDPListener:
                 log.critical("Something went wrong! Can't stop process!")
                 log.info(str(self.devPool))
                 log.info(str(self.devPool[process]))
-
+        if reboot == True:
+            self.devPoolCheck()
+            self.killFlag.value = 1
+            
+            
     def queryDevice(self, devId, passw, auth=0):
         # authState = True
         authState = self.authDevice(devId, passw, self.client_address)
@@ -309,6 +317,7 @@ class GoipUDPListener:
         return command
 
     def devPoolCheck(self):
+        log.info("devWorker check. Checking for stopped workers.")
         for device in self.devPool:
             if not self.devPool[device]['device'].is_alive():
                 log.warn("Stall process found. Trying to restart.")
