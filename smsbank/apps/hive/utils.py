@@ -295,6 +295,13 @@ class GoipUDPListener:
             log.error("Received command is unsupported")
             return False
         return command
+    
+    def devPoolCheck(self):
+        for device in self.devPool:
+            if not self.devPool[device]['device'].is_alive():
+                log.warn("Stall process found. Trying to restart.")
+                self.devPool[device]['device'].start()
+                log.info("Stalled worker id is: " + str(device))
 
     def authDevice(self, devid, password, host):
         '''
