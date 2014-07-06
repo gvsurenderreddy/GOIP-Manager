@@ -8,11 +8,17 @@ from time import sleep
 import random
 import logging as log
 import socket
+
+from django.db import connection
 import redis
 
-from smsbank.apps.hive.services import (
-    initialize_device,
-    new_sms,
+# from smsbank.apps.hive.services import (
+#     initialize_device,
+#     new_sms,
+# )
+from smsbank.apps.hive.tasks import (
+    create_sms,
+    auth_device
 )
 
 # from clint.textui import puts, colored
@@ -211,6 +217,11 @@ class GoipUDPListener:
         # authState = True
         authState = self.authDevice(devId, passw, self.client_address)
         if (not self.deviceActive(devId) and authState):
+            # Close parent DB connection,
+            # so that children won't inherit it when forking
+            connection.close()
+
+            # Initialize device worker
             queue = mp.Queue()
             device = deviceWorker(
                 devId,
@@ -221,6 +232,8 @@ class GoipUDPListener:
                 self.killFlag
             )
             device.daemon = True
+
+            # Launch device worker and update device pool
             device.start()
             self.devPool[devId] = {}
             self.devPool[devId]['device'] = device
@@ -270,6 +283,14 @@ class GoipUDPListener:
             if command['command'] == 'RECEIVE':
                 msgIndex = data.find('msg:') + 4
                 command['msg'] = data[msgIndex:]
+                # device Id - connection check-override
+                devId = self.getDeviceIdByConnection(command)
+                if not devId:
+                    log.warn("Message from unregistered device! Skipping.")
+                elif devId != command['id']:
+                    log.warn("Conflicting device id in message! Overriding.")
+                    command['id'] = devId
+
         elif command['command'] in [
             'MSG',
             'USSD',
@@ -282,19 +303,9 @@ class GoipUDPListener:
             command['seed'] = data.split()[1]
             command['data'] = data
             if 'id' not in command:
-                # iterating over a dictionary, so we are getting KEYS
-                for device in self.devPool:
-                    if self.devPool[device]['address'] == self.client_address:
-                        command['id'] = device
-                        idFound = True
-                        command['pass'] = devPassword
-                        # TODO: check if seed correspond with source host
-                if not idFound:
-                    log.error(
-                        'Cannot identify device with command.'
-                        'Command without id came from unregistered device!'
-                    )
-                    log.error("Command we got: " + str(data))
+                command['id'] = self.getDeviceIdByConnection(command)
+                if not command['id']:
+                    log.error("Unable to get device ID")
                     return False
         else:
             log.error("Received command is unsupported")
@@ -308,17 +319,38 @@ class GoipUDPListener:
                 self.devPool[device]['device'].start()
                 log.info("Stalled worker id is: " + str(device))
 
+    def getDeviceIdByConnection(self, command):
+        # iterating over a dictionary, so we are getting KEYS
+        for device in self.devPool:
+            if self.devPool[device]['address'] == self.client_address:
+                command['id'] = device
+                idFound = True
+                command['pass'] = devPassword
+                return device
+                # TODO: check if seed correspond with source host
+        if not idFound:
+            log.error(
+                'Cannot identify device with command.'
+                'Command without id came from unregistered device!'
+            )
+            log.error("Command we got: " + str(command['data']))
+            return False
+
     def authDevice(self, devid, password, host):
         '''
         Must check existence of such device id in DB
         and check password afterwards
         '''
         if password == devPassword:
+            auth_device.delay(devid, host[0], host[1])
+
+            '''
             try:
                 initialize_device(devid, host[0], host[1])
             except Exception as e:
-                log.error('Database exception: %s' % e)
+                log.error('Database exception when authorizing: %s' % e)
                 return False
+            '''
 
             return True
 
@@ -489,6 +521,14 @@ class deviceWorker(mp.Process):
             del self.msgSeeds[data['seed']]
             del self.msgActive[data['seed']]
             # Save outbound sms to database
+            create_sms(
+                message['recipient'],
+                message['message'],
+                False,
+                self.devid
+            )
+
+            '''
             try:
                 # TODO: check for racing condition / use REDIS
                 new_sms(
@@ -501,6 +541,7 @@ class deviceWorker(mp.Process):
                 log.error(
                     'Database exception when saving outbound SMS: %s' % e
                 )
+            '''
 
         elif data['command'] == 'DELIVER':
             # TODO: implement DB write on delivery
@@ -517,6 +558,7 @@ class deviceWorker(mp.Process):
                 response = (
                     data['command'] + " " + str(data[data['command']]) + " OK"
                 )
+
         else:
             log.error("Unrecognized command for outbound SMS!")
             raise Exception
@@ -539,6 +581,13 @@ class deviceWorker(mp.Process):
         print response
 
         # Save inbound sms to database
+        create_sms.delay(
+            data['srcnum'],
+            data['msg'],
+            True,
+            self.devid
+        )
+        '''
         try:
             # TODO: check for racing condition / use REDIS
             new_sms(
@@ -551,6 +600,7 @@ class deviceWorker(mp.Process):
             log.error(
                 'Database exception when saving inbound SMS: %s' % e
             )
+        '''
 
         return response
 

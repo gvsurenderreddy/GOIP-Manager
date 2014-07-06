@@ -29,6 +29,7 @@ from services import (
     associate_profiles,
     new_call_forwarding_profile,
     list_sms,
+    delete_sms,
     get_device_by_id
 )
 from client import GOIPClient
@@ -196,14 +197,21 @@ def grunt_list(request, grunt, inbox):
     if not device:
         raise Http404
 
+    # Delete SMS if post
+    sms_deleted = False
+    if request.method == 'POST':
+        delete_sms(request.POST.get('sms_to_delete'))
+        sms_deleted = True
+
     # Get sms list
     sms_list = list_sms(device, inbox)
 
-    return render(
-        request,
-        'devices/grunt.html',
-        {'grunt': device, 'sms_list': sms_list, 'inbox': inbox}
-    )
+    return render(request, 'devices/grunt.html', {
+        'grunt': device,
+        'sms_list': sms_list,
+        'inbox': inbox,
+        'sms_deleted': sms_deleted
+    })
 
 
 def grunt_send(request, grunt):

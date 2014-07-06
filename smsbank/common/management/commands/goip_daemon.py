@@ -2,7 +2,6 @@
 from django.core.management.base import BaseCommand
 
 from optparse import make_option
-import SocketServer as ss
 
 from smsbank.apps.hive.utils import (
     LocalAPIServer,
@@ -42,11 +41,6 @@ class Command(BaseCommand):
         apiHandle.start()
 
         # Launch GOIP server
-        #server = ss.UDPServer(
-        #    (options['host'], options['port']),
-        #    GoipUDPListener
-        #)
-        #server.serve_forever()
         server = GoipUDPListener((options['host'], options['port']), )
         server.serve()
         apiHandle.join()
